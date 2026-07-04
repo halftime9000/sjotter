@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aftrap — jeugdtoernooien organiseren zonder gedoe</title>
+<meta name="description" content="Inschrijvingen, loting en speelschema voor jeugdvoetbaltoernooien in België. €20 per toernooi.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --groen:#14532D; --groen-d:#0D3B20; --gras:#22A05A; --gras-l:#E7F5EC;
+  --inkt:#101B14; --grijs:#5B6660; --papier:#F4F6F3; --wit:#FFFFFF;
+  --lijn:#DDE3DC; --geel:#F2C230; --rood:#C6402E; --rood-l:#FBEBE8;
+  --r:12px; --shadow:0 1px 2px rgba(16,27,20,.06),0 4px 16px rgba(16,27,20,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--papier);color:var(--inkt);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'Archivo',sans-serif;letter-spacing:-.01em;line-height:1.15}
+a{color:var(--groen);text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--lijn);border-radius:8px;background:var(--wit);width:100%;color:var(--inkt)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--gras);outline-offset:1px;border-color:var(--gras)}
+label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.04em}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* ---------- layout ---------- */
+.topbar{background:var(--groen-d);color:#fff;position:sticky;top:0;z-index:50}
+.topbar-in{max-width:1080px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}
+.logo{font-family:'Archivo';font-weight:900;font-size:20px;color:#fff;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.logo .bal{width:22px;height:22px;border-radius:50%;background:#fff;position:relative;display:inline-block}
+.logo .bal::after{content:'';position:absolute;inset:6px;border-radius:2px;background:var(--groen-d);clip-path:polygon(50% 0,100% 38%,81% 100%,19% 100%,0 38%)}
+.topbar nav{margin-left:auto;display:flex;gap:8px;align-items:center}
+.topbar nav a,.topbar nav button{color:#fff;font-weight:600;font-size:14px;padding:8px 14px;border-radius:8px;background:transparent;border:none}
+.topbar nav a:hover,.topbar nav button:hover{background:rgba(255,255,255,.12)}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px}
+.wrap-smal{max-width:520px}
+
+/* ---------- knoppen ---------- */
+.btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;font-weight:700;font-size:14px;padding:11px 20px;border-radius:9px;border:none;transition:.15s}
+.btn-p{background:var(--gras);color:#fff}
+.btn-p:hover{background:#1B8A4C}
+.btn-d{background:var(--groen-d);color:#fff}
+.btn-d:hover{background:#0A2E19}
+.btn-o{background:var(--wit);color:var(--inkt);border:1px solid var(--lijn)}
+.btn-o:hover{border-color:var(--gras);color:var(--groen)}
+.btn-r{background:var(--rood-l);color:var(--rood)}
+.btn-sm{padding:7px 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---------- kaarten & tabellen ---------- */
+.kaart{background:var(--wit);border:1px solid var(--lijn);border-radius:var(--r);box-shadow:var(--shadow);padding:22px;margin-bottom:18px}
+.kaart h3{font-size:17px;margin-bottom:4px}
+.kaart .sub{color:var(--grijs);font-size:13px}
+.krijt{border:none;border-top:2px dashed var(--lijn);margin:18px 0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--grijs);padding:8px 10px;border-bottom:2px solid var(--lijn)}
+td{padding:9px 10px;border-bottom:1px solid var(--lijn);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:center;width:42px}
+.tijd{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;background:var(--gras-l);color:var(--groen);padding:3px 8px;border-radius:6px;white-space:nowrap}
+.veldtag{font-size:11.5px;font-weight:700;color:var(--grijs);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.score{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;white-space:nowrap}
+.score input{width:46px;text-align:center;padding:6px 4px;font-family:'IBM Plex Mono',monospace;font-weight:600}
+.badge{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
+.b-concept{background:#EEE;color:var(--grijs)}
+.b-live{background:var(--gras-l);color:var(--groen)}
+.b-geel{background:#FBF3D9;color:#8A6D10}
+.b-rood{background:var(--rood-l);color:var(--rood)}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--lijn);margin:18px 0 22px}
+.tabs a{padding:9px 14px;font-weight:600;font-size:14px;color:var(--grijs);border-radius:8px 8px 0 0;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tabs a.act{color:var(--groen);border-bottom-color:var(--gras);background:var(--wit)}
+
+/* ---------- landing ---------- */
+.hero{background:var(--groen-d);color:#fff;padding:70px 20px 84px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;left:50%;top:-140px;width:560px;height:560px;border:2px dashed rgba(255,255,255,.14);border-radius:50%;transform:translateX(-50%)}
+.hero::after{content:'';position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.14)}
+.hero-in{max-width:820px;margin:0 auto;text-align:center;position:relative;z-index:1}
+.hero h1{font-size:clamp(34px,6vw,58px);font-weight:900;letter-spacing:-.025em;margin-bottom:18px}
+.hero h1 em{font-style:normal;color:var(--geel)}
+.hero p{font-size:18px;color:#CBDCD1;max-width:560px;margin:0 auto 30px}
+.prijsstrook{background:var(--geel);color:var(--groen-d);text-align:center;font-weight:800;font-family:'Archivo';padding:12px 20px;font-size:15px}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:26px}
+.feat{background:var(--wit);border:1px solid var(--lijn);border-radius:var(--r);padding:20px}
+.feat .ico{font-size:22px;margin-bottom:8px}
+.feat h3{font-size:15.5px;margin-bottom:5px}
+.feat p{font-size:13.5px;color:var(--grijs)}
+
+/* ---------- poules & standen ---------- */
+.poule-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.poule{border:1px solid var(--lijn);border-radius:10px;overflow:hidden}
+.poule-kop{background:var(--groen-d);color:#fff;font-family:'Archivo';font-weight:800;font-size:14px;padding:8px 14px;letter-spacing:.02em}
+.poule ul{list-style:none}
+.poule li{padding:9px 14px;border-bottom:1px solid var(--lijn);display:flex;align-items:center;gap:8px;font-size:14px}
+.poule li:last-child{border-bottom:none}
+.poule li select{width:auto;padding:4px 8px;font-size:12.5px;margin-left:auto}
+
+/* ---------- misc ---------- */
+.leeg{text-align:center;color:var(--grijs);padding:34px 16px;font-size:14px}
+.rij{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.rij>*{flex:1;min-width:140px}
+.melding{padding:12px 16px;border-radius:9px;font-size:14px;font-weight:500;margin:14px 0}
+.m-ok{background:var(--gras-l);color:var(--groen)}
+.m-fout{background:var(--rood-l);color:var(--rood)}
+.m-info{background:#EDF2FA;color:#2B4C7E}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--inkt);color:#fff;padding:12px 22px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:99;box-shadow:var(--shadow)}
+#toast.zien{opacity:1;transform:translateX(-50%) translateY(0)}
+.stat-rij{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 4px}
+.stat{background:var(--wit);border:1px solid var(--lijn);border-radius:10px;padding:14px 18px;min-width:120px}
+.stat .n{font-family:'Archivo';font-weight:900;font-size:24px;color:var(--groen)}
+.stat .l{font-size:12px;color:var(--grijs);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.iban{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;background:var(--gras-l);color:var(--groen);padding:10px 16px;border-radius:8px;display:inline-block;margin:4px 0}
+@media(max-width:640px){
+  .topbar nav a.verberg-m{display:none}
+  .kaart{padding:16px}
+  td,th{padding:7px 6px;font-size:13px}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast"></div>
+<script>
+/* ============================================================
+   TOERNOOIDAG v1
+   ============================================================ */
+const CONFIG = {
+  SUPABASE_URL: 'https://equmwyvxbjjocwetwfcw.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_wLF8ZNLFbiWM8YGrEnzjXQ_Aon8llxh',
+  SUPER_ADMIN_UID: '95fca7a8-1e59-4158-9414-780704d96fe3',
+  PLATFORM: 'Aftrap',
+  PRIJS: 20,
+  IBAN: 'BE00 0000 0000 0000',
+  BEGUNSTIGDE: 'Aftrap',
+};
+
+const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+let sessie = null;
+let mijnClub = null;
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const root = () => $('#root');
+const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('zien'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('zien'),2600); }
+function fout(e){ console.error(e); toast('⚠ ' + (e?.message || 'Er ging iets mis')); }
+const rand = n => Array.from({length:n},()=> 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*31)]).join('');
+const slugify = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function tijdPlus(t, min){ const [u,m] = t.split(':').map(Number); const tot = u*60+m+min; return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0'); }
+function datumNL(d){ if(!d) return '—'; return new Date(d+'T00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+function shuffle(a){ const x=[...a]; for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]];} return x; }
+function teamNaam(t){ return t ? h(t.club_naam + (t.team_naam ? ' ' + t.team_naam : '')) : '—'; }
+const isAdmin = () => sessie && sessie.user.id === CONFIG.SUPER_ADMIN_UID;
+
+/* ---------- router ---------- */
+window.addEventListener('hashchange', render);
+
+async function boot(){
+  const { data } = await sb.auth.getSession();
+  sessie = data.session;
+  sb.auth.onAuthStateChange((_e, s) => { sessie = s; });
+  render();
+}
+
+async function render(){
+  const hash = location.hash.replace(/^#\/?/, '');
+  const p = hash.split('/');
+  window.scrollTo(0,0);
+  try {
+    if (p[0] === 'login') return vAuth('login');
+    if (p[0] === 'registreren') return vAuth('registreren');
+    if (p[0] === 'dashboard') return vDashboard();
+    if (p[0] === 't' && p[1]) return vBeheer(p[1], p[2] || 'instellingen');
+    if (p[0] === 'p' && p[1]) return vPubliek(p[1], p[2] || 'info');
+    if (p[0] === 'admin') return vAdmin();
+    return vLanding();
+  } catch(e){ fout(e); }
+}
+
+function topbar(){
+  const ingelogd = !!sessie;
+  return `<header class="topbar"><div class="topbar-in">
+    <a href="#/" class="logo"><span class="bal"></span>${CONFIG.PLATFORM}</a>
+    <nav>
+      ${ingelogd ? `
+        <a href="#/dashboard">Mijn toernooien</a>
+        ${isAdmin() ? '<a href="#/admin" class="verberg-m">Beheer</a>' : ''}
+        <button onclick="app.uitloggen()">Afmelden</button>
+      ` : `
+        <a href="#/login">Aanmelden</a>
+        <a href="#/registreren" class="btn btn-p btn-sm">Start je toernooi</a>
+      `}
+    </nav>
+  </div></header>`;
+}
+
+/* ============================================================
+   LANDING
+   ============================================================ */
+function vLanding(){
+  root().innerHTML = topbar() + `
+  <section class="hero"><div class="hero-in">
+    <h1>Jouw jeugdtoernooi,<br>van inschrijving tot <em>eindstand</em>.</h1>
+    <p>Online inschrijvingen, automatische loting en een waterdicht speelschema. Gemaakt voor Belgische voetbalclubs.</p>
+    <a href="#/registreren" class="btn btn-p" style="font-size:16px;padding:14px 28px">Maak je toernooi aan</a>
+  </div></section>
+  <div class="prijsstrook">€ ${CONFIG.PRIJS} per toernooi — geen abonnement, geen verrassingen. Aanmaken en testen is gratis.</div>
+  <div class="wrap">
+    <div class="feat-grid">
+      <div class="feat"><div class="ico">📝</div><h3>Online inschrijvingen</h3><p>Deel één link. Clubs schrijven hun ploegen zelf in per leeftijdscategorie, met automatische limieten.</p></div>
+      <div class="feat"><div class="ico">🎲</div><h3>Slimme loting</h3><p>Automatische pouleverdeling die ploegen van dezelfde club uit elkaar houdt. Nadien nog manueel bij te sturen.</p></div>
+      <div class="feat"><div class="ico">🗓️</div><h3>Speelschema in seconden</h3><p>Velden, wedstrijdduur en pauzes instellen — het schema rolt eruit zonder dubbele boekingen of ploegen die twee keer na elkaar spelen.</p></div>
+      <div class="feat"><div class="ico">⚽</div><h3>Live uitslagen & standen</h3><p>Scores ingeven op je gsm, standen worden meteen berekend. Ouders en coaches volgen alles op de publieke pagina.</p></div>
+      <div class="feat"><div class="ico">🏆</div><h3>Finales automatisch</h3><p>Na de poulefase genereer je met één klik de finale en plaatsingswedstrijden.</p></div>
+      <div class="feat"><div class="ico">💶</div><h3>Half zo duur</h3><p>€ ${CONFIG.PRIJS} per toernooi, betalen via overschrijving of Payconiq. Pas betalen wanneer je publiceert.</p></div>
+    </div>
+    <div class="kaart" style="margin-top:26px;text-align:center">
+      <h3>Zo werkt het</h3>
+      <p class="sub" style="max-width:620px;margin:8px auto 0">1. Maak gratis je toernooi aan en stel categorieën in &nbsp;→&nbsp; 2. Betaal € ${CONFIG.PRIJS} en publiceer je inschrijvingslink &nbsp;→&nbsp; 3. Loting, schema en live standen op de dag zelf.</p>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   AUTH
+   ============================================================ */
+function vAuth(modus){
+  const reg = modus === 'registreren';
+  root().innerHTML = topbar() + `<div class="wrap wrap-smal">
+    <div class="kaart">
+      <h3>${reg ? 'Registreer je club' : 'Aanmelden'}</h3>
+      <p class="sub">${reg ? 'Gratis account — je betaalt pas bij publicatie van een toernooi.' : 'Welkom terug.'}</p>
+      ${reg ? `<label>Clubnaam</label><input id="f-club" placeholder="bv. KSK Lovendegem">` : ''}
+      <label>E-mailadres</label><input id="f-email" type="email" autocomplete="email">
+      <label>Wachtwoord</label><input id="f-ww" type="password" autocomplete="${reg?'new-password':'current-password'}">
+      <div id="auth-melding"></div>
+      <div style="margin-top:18px;display:flex;gap:10px;align-items:center">
+        <button class="btn btn-p" onclick="app.${reg?'registreer':'login'}()">${reg ? 'Account aanmaken' : 'Aanmelden'}</button>
+        <a href="#/${reg?'login':'registreren'}" style="font-size:13.5px">${reg ? 'Al een account? Meld je aan' : 'Nieuw hier? Registreer je club'}</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+window.app = {};
+
+app.registreer = async () => {
+  const club = $('#f-club').value.trim(), email = $('#f-email').value.trim(), ww = $('#f-ww').value;
+  if (!club || !email || ww.length < 6) return toast('Vul alles in (wachtwoord min. 6 tekens)');
+  const { data, error } = await sb.auth.signUp({ email, password: ww });
+  if (error) return fout(error);
+  if (!data.session) {
+    localStorage.setItem('td_clubnaam', club);
+    $('#auth-melding').innerHTML = `<div class="melding m-info">Check je mailbox en bevestig je e-mailadres. Meld je daarna aan.</div>`;
+    return;
+  }
+  sessie = data.session;
+  await sb.from('clubs').insert({ id: data.user.id, club_naam: club, email });
+  location.hash = '#/dashboard';
+};
+
+app.login = async () => {
+  const email = $('#f-email').value.trim(), ww = $('#f-ww').value;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: ww });
+  if (error) return fout(error);
+  sessie = data.session;
+  // clubs-rij aanmaken indien nog niet (bv. na e-mailbevestiging)
+  const { data: c } = await sb.from('clubs').select('id').eq('id', data.user.id).maybeSingle();
+  if (!c) await sb.from('clubs').insert({ id: data.user.id, club_naam: localStorage.getItem('td_clubnaam') || email.split('@')[0], email });
+  location.hash = '#/dashboard';
+};
+
+app.uitloggen = async () => { await sb.auth.signOut(); sessie = null; mijnClub = null; location.hash = '#/'; };
+
+/* ============================================================
+   DASHBOARD (club)
+   ============================================================ */
+async function vDashboard(){
+  if (!sessie) return location.hash = '#/login';
+  root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
+  const { data: club } = await sb.from('clubs').select('*').eq('id', sessie.user.id).maybeSingle();
+  mijnClub = club;
+  const { data: ts, error } = await sb.from('toernooien').select('*').eq('club_id', sessie.user.id).order('created_at', { ascending: false });
+  if (error) return fout(error);
+
+  root().innerHTML = topbar() + `<div class="wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div><h2 style="font-size:26px">${h(club?.club_naam || 'Mijn club')}</h2><p class="sub" style="color:var(--grijs);font-size:13.5px">Je toernooien</p></div>
+      <button class="btn btn-p" onclick="app.nieuwToernooi()">+ Nieuw toernooi</button>
+    </div>
+    <div style="margin-top:20px">
+    ${!ts.length ? `<div class="kaart"><div class="leeg">Nog geen toernooien. Maak je eerste toernooi aan — het is gratis tot je publiceert.</div></div>`
+      : ts.map(t => `
+      <a href="#/t/${t.id}" style="display:block;color:inherit"><div class="kaart" style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+        <div>
+          <h3>${h(t.naam)}</h3>
+          <p class="sub">${datumNL(t.datum)} · ${h(t.locatie || 'locatie nog in te stellen')}</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${!t.betaald ? '<span class="badge b-geel">Nog niet betaald</span>' : ''}
+          <span class="badge ${t.status==='gepubliceerd'?'b-live':'b-concept'}">${t.status}</span>
+        </div>
+      </div></a>`).join('')}
+    </div>
+  </div>`;
+}
+
+app.nieuwToernooi = async () => {
+  const naam = prompt('Naam van het toernooi (bv. Paastornooi KSK Lovendegem 2027):');
+  if (!naam) return;
+  const slug = slugify(naam).slice(0, 40) + '-' + rand(4).toLowerCase();
+  const { data, error } = await sb.from('toernooien').insert({
+    club_id: sessie.user.id, naam: naam.trim(), slug,
+    betaalref: 'TRN-' + rand(6), contact_email: sessie.user.email
+  }).select().single();
+  if (error) return fout(error);
+  location.hash = '#/t/' + data.id;
+};
+
+/* ============================================================
+   BEHEER — data laden
+   ============================================================ */
+async function laadToernooi(id){
+  const [t, cats, teams, wed] = await Promise.all([
+    sb.from('toernooien').select('*').eq('id', id).single(),
+    sb.from('categorieen').select('*').eq('toernooi_id', id).order('volgorde').order('naam'),
+    sb.from('teams').select('*').eq('toernooi_id', id).order('created_at'),
+    sb.from('wedstrijden').select('*').eq('toernooi_id', id).order('volgorde'),
+  ]);
+  if (t.error) throw t.error;
+  return { t: t.data, cats: cats.data || [], teams: teams.data || [], wed: wed.data || [] };
+}
+
+async function vBeheer(id, tab){
+  if (!sessie) return location.hash = '#/login';
+  root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
+  let d;
+  try { d = await laadToernooi(id); } catch(e){ return fout(e); }
+  const { t } = d;
+  const T = n => `#/t/${id}/${n}`;
+  const tel = c => d.teams.filter(x => x.categorie_id === c.id).length;
+
+  root().innerHTML = topbar() + `<div class="wrap">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 style="font-size:24px">${h(t.naam)}</h2>
+        <p class="sub" style="color:var(--grijs);font-size:13.5px">${datumNL(t.datum)} · ${h(t.locatie||'—')}</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="badge ${t.status==='gepubliceerd'?'b-live':'b-concept'}">${t.status}</span>
+        ${t.status==='gepubliceerd' ? `<a class="btn btn-o btn-sm" href="#/p/${t.slug}" target="_blank">Publieke pagina ↗</a>`:''}
+      </div>
+    </div>
+    <div class="stat-rij">
+      <div class="stat"><div class="n">${d.cats.length}</div><div class="l">Categorieën</div></div>
+      <div class="stat"><div class="n">${d.teams.length}</div><div class="l">Ploegen</div></div>
+      <div class="stat"><div class="n">${d.wed.length}</div><div class="l">Wedstrijden</div></div>
+    </div>
+    <div class="tabs">
+      ${[['instellingen','Instellingen'],['categorieen','Categorieën'],['teams','Ploegen'],['loting','Loting'],['schema','Schema'],['uitslagen','Uitslagen'],['publicatie','Publicatie & betaling']]
+        .map(([k,l]) => `<a href="${T(k)}" class="${tab===k?'act':''}">${l}</a>`).join('')}
+    </div>
+    <div id="tab-inhoud"></div>
+  </div>`;
+
+  const el = $('#tab-inhoud');
+  if (tab === 'instellingen') tabInstellingen(el, d);
+  if (tab === 'categorieen') tabCategorieen(el, d);
+  if (tab === 'teams') await tabTeams(el, d);
+  if (tab === 'loting') tabLoting(el, d);
+  if (tab === 'schema') tabSchema(el, d);
+  if (tab === 'uitslagen') tabUitslagen(el, d);
+  if (tab === 'publicatie') tabPublicatie(el, d);
+}
+
+/* ---------- tab: instellingen ---------- */
+function tabInstellingen(el, d){
+  const { t } = d;
+  el.innerHTML = `
+  <div class="kaart">
+    <h3>Algemeen</h3>
+    <div class="rij">
+      <div><label>Naam</label><input id="i-naam" value="${h(t.naam)}"></div>
+      <div><label>Datum</label><input id="i-datum" type="date" value="${t.datum||''}"></div>
+    </div>
+    <div class="rij">
+      <div><label>Locatie</label><input id="i-locatie" value="${h(t.locatie||'')}" placeholder="bv. Sportpark De Kraenepoel, Lovendegem"></div>
+      <div><label>Contact e-mail (publiek)</label><input id="i-email" value="${h(t.contact_email||'')}"></div>
+    </div>
+    <label>Beschrijving (publieke pagina)</label>
+    <textarea id="i-beschrijving" rows="3" placeholder="Praktische info, inschrijvingsgeld per ploeg, parking, kantine…">${h(t.beschrijving||'')}</textarea>
+  </div>
+  <div class="kaart">
+    <h3>Speelschema-instellingen</h3>
+    <p class="sub">Deze bepalen hoe het schema gegenereerd wordt.</p>
+    <div class="rij">
+      <div><label>Aantal velden</label><input id="i-velden" type="number" min="1" max="12" value="${t.aantal_velden}"></div>
+      <div><label>Wedstrijdduur (min)</label><input id="i-duur" type="number" min="5" max="60" value="${t.wedstrijdduur}"></div>
+      <div><label>Pauze tussen wedstrijden (min)</label><input id="i-pauze" type="number" min="0" max="30" value="${t.pauze}"></div>
+      <div><label>Starttijd</label><input id="i-start" type="time" value="${t.starttijd}"></div>
+    </div>
+  </div>
+  <div class="kaart">
+    <h3>Inschrijvingen</h3>
+    <div class="rij">
+      <div><label>Inschrijvingen open</label>
+        <select id="i-open"><option value="true" ${t.inschrijving_open?'selected':''}>Open</option><option value="false" ${!t.inschrijving_open?'selected':''}>Gesloten</option></select></div>
+      <div><label>Deadline (laatste dag)</label><input id="i-deadline" type="date" value="${t.deadline||''}"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-p" onclick="app.bewaarInstellingen('${t.id}')">Wijzigingen bewaren</button>
+    <button class="btn btn-r" onclick="app.verwijderToernooi('${t.id}')">Toernooi verwijderen</button>
+  </div>`;
+}
+
+app.bewaarInstellingen = async (id) => {
+  const upd = {
+    naam: $('#i-naam').value.trim(), datum: $('#i-datum').value || null,
+    locatie: $('#i-locatie').value.trim(), contact_email: $('#i-email').value.trim(),
+    beschrijving: $('#i-beschrijving').value.trim(),
+    aantal_velden: +$('#i-velden').value || 1, wedstrijdduur: +$('#i-duur').value || 15,
+    pauze: +$('#i-pauze').value || 0, starttijd: $('#i-start').value || '09:00',
+    inschrijving_open: $('#i-open').value === 'true', deadline: $('#i-deadline').value || null,
+  };
+  const { error } = await sb.from('toernooien').update(upd).eq('id', id);
+  if (error) return fout(error);
+  toast('Bewaard ✓'); render();
+};
+
+app.verwijderToernooi = async (id) => {
+  if (!confirm('Toernooi definitief verwijderen? Alle ploegen en wedstrijden gaan mee verloren.')) return;
+  const { error } = await sb.from('toernooien').delete().eq('id', id);
+  if (error) return fout(error);
+  location.hash = '#/dashboard';
+};
+
+/* ---------- tab: categorieën ---------- */
+function tabCategorieen(el, d){
+  const rijen = d.cats.map(c => {
+    const n = d.teams.filter(x => x.categorie_id === c.id).length;
+    return `<tr>
+      <td><strong>${h(c.naam)}</strong></td>
+      <td class="num">${n}/${c.max_teams}</td>
+      <td class="num">${c.aantal_poules}</td>
+      <td style="text-align:right"><button class="btn btn-r btn-sm" onclick="app.verwijderCat('${c.id}','${d.t.id}')">Verwijder</button></td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `
+  <div class="kaart">
+    <h3>Leeftijdscategorieën</h3>
+    <p class="sub">Bv. U8, U9, U10… Ploegen schrijven zich per categorie in.</p>
+    ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
+    <hr class="krijt">
+    <div class="rij">
+      <div><label>Naam</label><input id="c-naam" placeholder="bv. U10"></div>
+      <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="32" value="8"></div>
+      <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="8" value="2"></div>
+      <div style="align-self:flex-end"><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%">+ Toevoegen</button></div>
+    </div>
+  </div>`;
+}
+
+app.nieuweCat = async (tid) => {
+  const naam = $('#c-naam').value.trim();
+  if (!naam) return toast('Geef een naam');
+  const { error } = await sb.from('categorieen').insert({
+    toernooi_id: tid, naam, max_teams: +$('#c-max').value || 8, aantal_poules: +$('#c-poules').value || 1,
+    volgorde: parseInt(naam.replace(/\D/g,'')) || 99
+  });
+  if (error) return fout(error);
+  toast('Categorie toegevoegd'); render();
+};
+
+app.verwijderCat = async (id, tid) => {
+  if (!confirm('Categorie verwijderen? Ingeschreven ploegen in deze categorie verdwijnen ook.')) return;
+  const { error } = await sb.from('categorieen').delete().eq('id', id);
+  if (error) return fout(error);
+  render();
+};
+
+/* ---------- tab: ploegen ---------- */
+async function tabTeams(el, d){
+  const { data: contacten } = await sb.from('team_contacten').select('*').in('team_id', d.teams.map(t=>t.id).concat(['00000000-0000-0000-0000-000000000000']));
+  const cMap = Object.fromEntries((contacten||[]).map(c=>[c.team_id,c]));
+  el.innerHTML = `
+  ${d.cats.map(c => {
+    const ts = d.teams.filter(x => x.categorie_id === c.id);
+    return `<div class="kaart">
+      <h3>${h(c.naam)} <span class="sub" style="font-weight:400">(${ts.length}/${c.max_teams} ploegen)</span></h3>
+      ${ts.length ? `<table style="margin-top:10px"><tr><th>Ploeg</th><th>Contact</th><th>Poule</th><th></th></tr>
+        ${ts.map(t => { const ct = cMap[t.id];
+          return `<tr>
+            <td><strong>${teamNaam(t)}</strong></td>
+            <td style="font-size:13px;color:var(--grijs)">${ct ? h(ct.naam||'') + (ct.email? ' · '+h(ct.email):'') + (ct.telefoon? ' · '+h(ct.telefoon):'') : '—'}</td>
+            <td>${t.poule ? '<span class="badge b-live">Poule '+h(t.poule)+'</span>' : '<span class="sub">—</span>'}</td>
+            <td style="text-align:right"><button class="btn btn-r btn-sm" onclick="app.verwijderTeam('${t.id}')">✕</button></td>
+          </tr>`;}).join('')}
+      </table>` : '<div class="leeg">Nog geen inschrijvingen.</div>'}
+      <hr class="krijt">
+      <div class="rij">
+        <div><label>Clubnaam</label><input id="t-club-${c.id}" placeholder="bv. KVE Drongen"></div>
+        <div><label>Ploegnaam (optioneel)</label><input id="t-naam-${c.id}" placeholder="bv. Blauw"></div>
+        <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.nieuwTeam('${d.t.id}','${c.id}')" style="width:100%">+ Ploeg toevoegen</button></div>
+      </div>
+    </div>`;
+  }).join('') || '<div class="kaart"><div class="leeg">Maak eerst categorieën aan.</div></div>'}`;
+}
+
+app.nieuwTeam = async (tid, cid) => {
+  const club = $(`#t-club-${cid}`).value.trim();
+  if (!club) return toast('Geef een clubnaam');
+  const { error } = await sb.from('teams').insert({ toernooi_id: tid, categorie_id: cid, club_naam: club, team_naam: $(`#t-naam-${cid}`).value.trim() || null });
+  if (error) return fout(error);
+  toast('Ploeg toegevoegd'); render();
+};
+
+app.verwijderTeam = async (id) => {
+  if (!confirm('Ploeg verwijderen?')) return;
+  const { error } = await sb.from('teams').delete().eq('id', id);
+  if (error) return fout(error);
+  render();
+};
+
+/* ============================================================
+   LOTING
+   ============================================================ */
+function tabLoting(el, d){
+  el.innerHTML = d.cats.map(c => {
+    const ts = d.teams.filter(x => x.categorie_id === c.id);
+    const letters = Array.from({length: c.aantal_poules}, (_,i) => String.fromCharCode(65+i));
+    const poulesHtml = letters.map(L => {
+      const inP = ts.filter(t => t.poule === L);
+      return `<div class="poule"><div class="poule-kop">Poule ${L}</div><ul>
+        ${inP.map(t => `<li>${teamNaam(t)}
+          <select onchange="app.wisselPoule('${t.id}', this.value)">
+            ${letters.map(x => `<option ${x===t.poule?'selected':''}>${x}</option>`).join('')}
+          </select></li>`).join('') || '<li class="sub">—</li>'}
+      </ul></div>`;
+    }).join('');
+    const zonder = ts.filter(t => !t.poule).length;
+    return `<div class="kaart">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h3>${h(c.naam)} <span class="sub" style="font-weight:400">${ts.length} ploegen · ${c.aantal_poules} poule(s)</span></h3>
+        <button class="btn btn-p btn-sm" onclick="app.loting('${c.id}')" ${ts.length<2?'disabled':''}>🎲 Loting uitvoeren</button>
+      </div>
+      ${zonder ? `<div class="melding m-info">${zonder} ploeg(en) nog zonder poule — voer de loting uit.</div>` : ''}
+      <div class="poule-grid" style="margin-top:14px">${poulesHtml}</div>
+    </div>`;
+  }).join('') || '<div class="kaart"><div class="leeg">Maak eerst categorieën en ploegen aan.</div></div>';
+  el.dataset.d = ''; el._d = d;
+}
+
+app.loting = async (cid) => {
+  const d = $('#tab-inhoud')._d;
+  const c = d.cats.find(x => x.id === cid);
+  const ts = d.teams.filter(x => x.categorie_id === cid);
+  if (d.wed.some(w => w.categorie_id === cid) && !confirm('Er bestaat al een schema voor deze categorie. Opnieuw loten maakt dat schema ongeldig. Doorgaan?')) return;
+  // groepeer per club, grootste clubs eerst, verdeel rond (houdt clubgenoten uit elkaar)
+  const perClub = {};
+  ts.forEach(t => (perClub[t.club_naam.toLowerCase()] ||= []).push(t));
+  const groepen = shuffle(Object.values(perClub)).sort((a,b) => b.length - a.length);
+  const letters = Array.from({length: c.aantal_poules}, (_,i) => String.fromCharCode(65+i));
+  const telling = Object.fromEntries(letters.map(L => [L, 0]));
+  const updates = [];
+  for (const groep of groepen) {
+    for (const team of shuffle(groep)) {
+      // kies poule met minste ploegen, mijd poules waar deze club al in zit indien mogelijk
+      const clubIn = new Set(updates.filter(u => u.club === team.club_naam.toLowerCase()).map(u => u.poule));
+      let kandidaten = letters.filter(L => !clubIn.has(L));
+      if (!kandidaten.length) kandidaten = letters;
+      kandidaten.sort((a,b) => telling[a] - telling[b]);
+      const L = kandidaten[0];
+      telling[L]++;
+      updates.push({ id: team.id, poule: L, club: team.club_naam.toLowerCase() });
+    }
+  }
+  for (const u of updates) await sb.from('teams').update({ poule: u.poule }).eq('id', u.id);
+  toast('Loting uitgevoerd 🎲'); render();
+};
+
+app.wisselPoule = async (teamId, poule) => {
+  const { error } = await sb.from('teams').update({ poule }).eq('id', teamId);
+  if (error) return fout(error);
+  toast('Poule aangepast'); render();
+};
+
+/* ============================================================
+   SCHEMA-ENGINE
+   ============================================================ */
+function roundRobin(ids){
+  const arr = [...ids];
+  if (arr.length % 2) arr.push(null);
+  const n = arr.length, rondes = [];
+  for (let r = 0; r < n - 1; r++) {
+    const rd = [];
+    for (let i = 0; i < n / 2; i++) {
+      const a = arr[i], b = arr[n - 1 - i];
+      if (a && b) rd.push(r % 2 ? [b, a] : [a, b]);
+    }
+    rondes.push(rd);
+    arr.splice(1, 0, arr.pop());
+  }
+  return rondes;
+}
+
+function bouwSchema(d){
+  const { t } = d;
+  // verzamel alle poulewedstrijden
+  let pool = [];
+  for (const c of d.cats) {
+    const letters = [...new Set(d.teams.filter(x => x.categorie_id === c.id && x.poule).map(x => x.poule))].sort();
+    for (const L of letters) {
+      const ids = d.teams.filter(x => x.categorie_id === c.id && x.poule === L).map(x => x.id);
+      if (ids.length < 2) continue;
+      roundRobin(ids).forEach((rd, ri) => rd.forEach(([a, b]) => pool.push({ cat: c.id, poule: L, a, b, ronde: ri })));
+    }
+  }
+  pool.sort((x, y) => x.ronde - y.ronde);
+  // greedy: per tijdslot max #velden wedstrijden, geen ploeg 2x in zelfde slot, liefst geen ploeg 2 slots na elkaar
+  const slots = [];
+  let vorige = new Set();
+  let guard = 0;
+  while (pool.length && guard++ < 2000) {
+    const slot = [], bezet = new Set();
+    for (const rustEerst of [true, false]) {
+      for (let i = 0; i < pool.length && slot.length < t.aantal_velden; i++) {
+        const m = pool[i];
+        if (bezet.has(m.a) || bezet.has(m.b)) continue;
+        if (rustEerst && (vorige.has(m.a) || vorige.has(m.b))) continue;
+        slot.push(m); bezet.add(m.a); bezet.add(m.b);
+        pool.splice(i, 1); i--;
+      }
+    }
+    slots.push(slot);
+    vorige = bezet;
+  }
+  // omzetten naar rijen
+  const slotDuur = t.wedstrijdduur + t.pauze;
+  const rijen = [];
+  slots.forEach((slot, si) => slot.forEach((m, vi) => rijen.push({
+    toernooi_id: t.id, categorie_id: m.cat, fase: 'poule', poule: m.poule,
+    team_a: m.a, team_b: m.b, veld: vi + 1,
+    starttijd: tijdPlus(t.starttijd, si * slotDuur), volgorde: si * 100 + vi
+  })));
+  return rijen;
+}
+
+function tabSchema(el, d){
+  const { t } = d;
+  const teamMap = Object.fromEntries(d.teams.map(x => [x.id, x]));
+  const catMap = Object.fromEntries(d.cats.map(x => [x.id, x]));
+  const zonderPoule = d.teams.filter(x => !x.poule).length;
+  const eind = d.wed.length ? d.wed.reduce((m,w)=> w.starttijd>m?w.starttijd:m, '00:00') : null;
+
+  const perTijd = {};
+  d.wed.forEach(w => (perTijd[w.starttijd] ||= []).push(w));
+  const tijden = Object.keys(perTijd).sort();
+
+  el.innerHTML = `
+  <div class="kaart">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div><h3>Speelschema</h3>
+      <p class="sub">${t.aantal_velden} veld(en) · ${t.wedstrijdduur} min + ${t.pauze} min pauze · start ${t.starttijd}${eind ? ' · laatste aftrap ' + eind : ''}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-p btn-sm" onclick="app.genereerSchema()">${d.wed.length ? '↻ Schema opnieuw genereren' : '⚙ Schema genereren'}</button>
+        <button class="btn btn-o btn-sm" onclick="app.genereerFinales()">🏆 Finales genereren</button>
+        ${d.wed.length ? `<button class="btn btn-r btn-sm" onclick="app.wisSchema('${t.id}')">Wis schema</button>` : ''}
+      </div>
+    </div>
+    ${zonderPoule ? `<div class="melding m-fout">${zonderPoule} ploeg(en) zitten nog niet in een poule — voer eerst de loting uit.</div>` : ''}
+    ${!d.wed.length ? '<div class="leeg">Nog geen schema. Stel velden & tijden in bij Instellingen, doe de loting en genereer.</div>' : `
+    <table style="margin-top:14px"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th style="text-align:center">Uitslag</th></tr>
+      ${tijden.map(tijd => perTijd[tijd].sort((a,b)=>a.veld-b.veld).map(w => `<tr>
+        <td><span class="tijd">${w.starttijd}</span></td>
+        <td><span class="veldtag">Veld ${w.veld||'—'}</span></td>
+        <td>${h(catMap[w.categorie_id]?.naam||'')}</td>
+        <td><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : 'Poule '+h(w.poule||'')}</span></td>
+        <td>${teamNaam(teamMap[w.team_a])} — ${teamNaam(teamMap[w.team_b])}</td>
+        <td class="score" style="text-align:center">${w.score_a==null?'· - ·':w.score_a+' - '+w.score_b}</td>
+      </tr>`).join('')).join('')}
+    </table>`}
+  </div>`;
+  el._d = d;
+}
+
+app.genereerSchema = async () => {
+  const d = $('#tab-inhoud')._d;
+  if (d.teams.some(x => !x.poule)) return toast('Doe eerst de loting (alle ploegen in een poule)');
+  if (d.wed.length && !confirm('Bestaand schema (incl. scores) wordt gewist en opnieuw gegenereerd. Doorgaan?')) return;
+  const rijen = bouwSchema(d);
+  if (!rijen.length) return toast('Geen wedstrijden te plannen — check poules');
+  await sb.from('wedstrijden').delete().eq('toernooi_id', d.t.id);
+  const { error } = await sb.from('wedstrijden').insert(rijen);
+  if (error) return fout(error);
+  toast(`Schema klaar: ${rijen.length} wedstrijden ✓`); render();
+};
+
+app.wisSchema = async (tid) => {
+  if (!confirm('Volledig schema wissen (incl. scores)?')) return;
+  await sb.from('wedstrijden').delete().eq('toernooi_id', tid);
+  render();
+};
+
+/* ============================================================
+   STANDEN & FINALES
+   ============================================================ */
+function berekenStand(teams, wedstrijden){
+  const rij = Object.fromEntries(teams.map(t => [t.id, { team: t, g:0, w:0, gel:0, v:0, dv:0, dt:0, ptn:0 }]));
+  for (const m of wedstrijden) {
+    if (m.score_a == null || m.score_b == null) continue;
+    const A = rij[m.team_a], B = rij[m.team_b];
+    if (!A || !B) continue;
+    A.g++; B.g++; A.dv += m.score_a; A.dt += m.score_b; B.dv += m.score_b; B.dt += m.score_a;
+    if (m.score_a > m.score_b) { A.w++; B.v++; A.ptn += 3; }
+    else if (m.score_a < m.score_b) { B.w++; A.v++; B.ptn += 3; }
+    else { A.gel++; B.gel++; A.ptn++; B.ptn++; }
+  }
+  return Object.values(rij).sort((a,b) => b.ptn - a.ptn || (b.dv-b.dt) - (a.dv-a.dt) || b.dv - a.dv || a.team.club_naam.localeCompare(b.team.club_naam));
+}
+
+app.genereerFinales = async () => {
+  const d = $('#tab-inhoud')._d;
+  const { t } = d;
+  let laatste = d.wed.reduce((m,w) => w.starttijd > m ? w.starttijd : m, t.starttijd);
+  const slotDuur = t.wedstrijdduur + t.pauze;
+  const nieuwe = [];
+  let melding = [];
+  for (const c of d.cats) {
+    const catW = d.wed.filter(w => w.categorie_id === c.id && w.fase === 'poule');
+    if (!catW.length) continue;
+    if (catW.some(w => w.score_a == null)) { melding.push(`${c.naam}: nog niet alle poule-uitslagen ingevuld`); continue; }
+    if (d.wed.some(w => w.categorie_id === c.id && w.fase === 'finale')) continue;
+    const letters = [...new Set(d.teams.filter(x => x.categorie_id === c.id && x.poule).map(x => x.poule))].sort();
+    if (letters.length !== 2) { if (letters.length > 2) melding.push(`${c.naam}: ${letters.length} poules — finales manueel toe te voegen`); continue; }
+    const standA = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[0]), catW.filter(w=>w.poule===letters[0]));
+    const standB = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[1]), catW.filter(w=>w.poule===letters[1]));
+    const n = Math.min(standA.length, standB.length);
+    for (let i = 0; i < n; i++) {
+      nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale',
+        label: i === 0 ? 'Finale' : `Plaats ${i*2+1}-${i*2+2}`,
+        team_a: standA[i].team.id, team_b: standB[i].team.id, volgorde: 100000 + i });
+    }
+  }
+  if (!nieuwe.length) return toast(melding[0] || 'Geen finales te genereren');
+  // plan finales na de laatste poulewedstrijd, finale van elke reeks als laatste
+  nieuwe.sort((a,b) => b.volgorde - a.volgorde);
+  let slot = 1;
+  const perSlot = [];
+  const bezet = () => perSlot[perSlot.length-1] || [];
+  for (const w of nieuwe) {
+    if (!perSlot.length || bezet().length >= t.aantal_velden) perSlot.push([]);
+    perSlot[perSlot.length-1].push(w);
+  }
+  perSlot.forEach((s, si) => s.forEach((w, vi) => { w.starttijd = tijdPlus(laatste, (si+1)*slotDuur); w.veld = vi+1; w.volgorde = 100000 + si*100 + vi; }));
+  const { error } = await sb.from('wedstrijden').insert(nieuwe);
+  if (error) return fout(error);
+  toast(`${nieuwe.length} finalewedstrijden toegevoegd 🏆`);
+  if (melding.length) setTimeout(()=>toast(melding[0]), 2800);
+  render();
+};
+
+/* ============================================================
+   UITSLAGEN
+   ============================================================ */
+function tabUitslagen(el, d){
+  const teamMap = Object.fromEntries(d.teams.map(x => [x.id, x]));
+  el.innerHTML = d.cats.map(c => {
+    const ws = d.wed.filter(w => w.categorie_id === c.id).sort((a,b)=>a.volgorde-b.volgorde);
+    if (!ws.length) return '';
+    const letters = [...new Set(d.teams.filter(x=>x.categorie_id===c.id&&x.poule).map(x=>x.poule))].sort();
+    return `<div class="kaart">
+      <h3>${h(c.naam)}</h3>
+      <table style="margin-top:10px"><tr><th>Tijd</th><th></th><th>Wedstrijd</th><th style="text-align:center">Score</th><th></th></tr>
+      ${ws.map(w => `<tr>
+        <td><span class="tijd">${w.starttijd||'—'}</span></td>
+        <td><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : h(w.poule||'')}</span></td>
+        <td>${teamNaam(teamMap[w.team_a])} — ${teamNaam(teamMap[w.team_b])}</td>
+        <td class="score" style="text-align:center;white-space:nowrap">
+          <input id="sa-${w.id}" type="number" min="0" value="${w.score_a ?? ''}"> -
+          <input id="sb-${w.id}" type="number" min="0" value="${w.score_b ?? ''}">
+        </td>
+        <td><button class="btn btn-o btn-sm" onclick="app.bewaarScore('${w.id}')">✓</button></td>
+      </tr>`).join('')}
+      </table>
+      ${letters.length ? `<hr class="krijt"><div class="poule-grid">${letters.map(L => standTabel(L,
+        berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===L), ws.filter(w=>w.fase==='poule'&&w.poule===L)))).join('')}</div>` : ''}
+    </div>`;
+  }).join('') || '<div class="kaart"><div class="leeg">Genereer eerst een schema.</div></div>';
+}
+
+function standTabel(L, stand){
+  return `<div class="poule"><div class="poule-kop">Stand poule ${h(L)}</div>
+  <table><tr><th></th><th>Ploeg</th><th class="num">G</th><th class="num">+/−</th><th class="num">Ptn</th></tr>
+  ${stand.map((r,i) => `<tr><td class="num">${i+1}</td><td>${teamNaam(r.team)}</td><td class="num">${r.g}</td><td class="num">${r.dv-r.dt>0?'+':''}${r.dv-r.dt}</td><td class="num"><strong>${r.ptn}</strong></td></tr>`).join('')}
+  </table></div>`;
+}
+
+app.bewaarScore = async (wid) => {
+  const a = $(`#sa-${wid}`).value, b = $(`#sb-${wid}`).value;
+  const { error } = await sb.from('wedstrijden').update({
+    score_a: a === '' ? null : +a, score_b: b === '' ? null : +b
+  }).eq('id', wid);
+  if (error) return fout(error);
+  toast('Score bewaard ✓'); render();
+};
+
+/* ============================================================
+   PUBLICATIE & BETALING
+   ============================================================ */
+function tabPublicatie(el, d){
+  const { t } = d;
+  const url = location.origin + location.pathname + '#/p/' + t.slug;
+  el.innerHTML = `
+  <div class="kaart">
+    <h3>1 · Betaling</h3>
+    ${t.betaald ? `<div class="melding m-ok">✓ Betaling ontvangen — je kan publiceren.</div>` : `
+      <p class="sub" style="margin-top:6px">Publiceren kost eenmalig <strong>€ ${CONFIG.PRIJS}</strong> per toernooi. Aanmaken, categorieën instellen en testen is gratis.</p>
+      <label>Overschrijving naar</label>
+      <div class="iban">${CONFIG.IBAN}</div>
+      <div class="rij" style="margin-top:6px">
+        <div><label>Begunstigde</label><div>${h(CONFIG.BEGUNSTIGDE)}</div></div>
+        <div><label>Mededeling (verplicht)</label><div class="iban" style="font-size:14px">${h(t.betaalref||'')}</div></div>
+        <div><label>Bedrag</label><div><strong>€ ${CONFIG.PRIJS},00</strong></div></div>
+      </div>
+      <div class="melding m-info" style="margin-top:16px">Betalen kan ook via Payconiq op hetzelfde rekeningnummer. Zodra je betaling verwerkt is (meestal binnen 1 werkdag) verschijnt hier de publiceerknop. <button class="btn btn-o btn-sm" onclick="render()" style="margin-left:6px">↻ Status vernieuwen</button></div>
+    `}
+  </div>
+  <div class="kaart">
+    <h3>2 · Publiceren</h3>
+    <p class="sub">Publiceren zet je toernooi online: clubs kunnen inschrijven via de publieke link en volgen schema & standen live.</p>
+    ${t.status === 'gepubliceerd' ? `
+      <div class="melding m-ok">🟢 Je toernooi staat live.</div>
+      <label>Publieke link — deel deze met de clubs</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input readonly value="${h(url)}" style="max-width:460px" onclick="this.select()">
+        <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText('${h(url)}').then(()=>toast('Link gekopieerd ✓'))">Kopieer</button>
+        <a class="btn btn-p btn-sm" href="#/p/${t.slug}" target="_blank">Bekijk ↗</a>
+      </div>
+      <hr class="krijt">
+      <button class="btn btn-r btn-sm" onclick="app.depubliceer('${t.id}')">Offline halen</button>
+    ` : `
+      <button class="btn btn-p" onclick="app.publiceer('${t.id}')" ${t.betaald ? '' : 'disabled'}>Toernooi publiceren</button>
+      ${!t.betaald ? '<p class="sub" style="margin-top:8px">Beschikbaar na betaling.</p>' : ''}
+    `}
+  </div>`;
+}
+
+app.publiceer = async (id) => {
+  const { error } = await sb.from('toernooien').update({ status: 'gepubliceerd' }).eq('id', id);
+  if (error) return fout(error);
+  toast('Toernooi gepubliceerd 🟢'); render();
+};
+app.depubliceer = async (id) => {
+  if (!confirm('Toernooi offline halen? De publieke pagina en inschrijvingslink werken dan niet meer.')) return;
+  const { error } = await sb.from('toernooien').update({ status: 'concept' }).eq('id', id);
+  if (error) return fout(error);
+  render();
+};
+
+/* ============================================================
+   PUBLIEKE PAGINA
+   ============================================================ */
+async function vPubliek(slug, tab){
+  root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
+  const { data: t, error } = await sb.from('toernooien').select('*').eq('slug', slug).maybeSingle();
+  if (error) return fout(error);
+  if (!t) return root().innerHTML = topbar() + `<div class="wrap"><div class="kaart"><div class="leeg">Toernooi niet gevonden of niet (meer) gepubliceerd.</div></div></div>`;
+  const [cats, teams, wed, clubRes] = await Promise.all([
+    sb.from('categorieen').select('*').eq('toernooi_id', t.id).order('volgorde').order('naam'),
+    sb.from('teams').select('*').eq('toernooi_id', t.id),
+    sb.from('wedstrijden').select('*').eq('toernooi_id', t.id).order('volgorde'),
+    Promise.resolve(null),
+  ]);
+  const d = { t, cats: cats.data||[], teams: teams.data||[], wed: wed.data||[] };
+  const P = n => `#/p/${slug}/${n}`;
+  const open = t.inschrijving_open && (!t.deadline || t.deadline >= new Date().toISOString().slice(0,10));
+
+  root().innerHTML = topbar() + `
+  <section class="hero" style="padding:44px 20px 50px"><div class="hero-in">
+    <h1 style="font-size:clamp(26px,5vw,42px)">${h(t.naam)}</h1>
+    <p style="margin-bottom:0">${datumNL(t.datum)} · ${h(t.locatie||'')}</p>
+  </div></section>
+  <div class="wrap">
+    <div class="tabs" style="margin-top:0">
+      ${[['info','Info'],['inschrijven','Inschrijven'],['programma','Programma'],['standen','Standen']]
+        .map(([k,l]) => `<a href="${P(k)}" class="${tab===k?'act':''}">${l}${k==='inschrijven'&&open?' 🟢':''}</a>`).join('')}
+    </div>
+    <div id="pub-inhoud"></div>
+  </div>`;
+
+  const el = $('#pub-inhoud');
+  if (tab === 'info') pubInfo(el, d, open);
+  if (tab === 'inschrijven') pubInschrijven(el, d, open);
+  if (tab === 'programma') pubProgramma(el, d);
+  if (tab === 'standen') pubStanden(el, d);
+}
+
+function pubInfo(el, d, open){
+  const { t } = d;
+  el.innerHTML = `<div class="kaart">
+    <h3>Praktisch</h3>
+    <p style="white-space:pre-wrap;margin-top:8px">${h(t.beschrijving || 'De organisator voegde nog geen extra info toe.')}</p>
+    <hr class="krijt">
+    <div class="rij">
+      <div><label>Datum</label>${datumNL(t.datum)}</div>
+      <div><label>Locatie</label>${h(t.locatie||'—')}</div>
+      <div><label>Contact</label>${t.contact_email ? `<a href="mailto:${h(t.contact_email)}">${h(t.contact_email)}</a>` : '—'}</div>
+      <div><label>Inschrijvingen</label>${open ? '<span class="badge b-live">Open</span>' + (t.deadline ? ' tot ' + datumNL(t.deadline) : '') : '<span class="badge b-rood">Gesloten</span>'}</div>
+    </div>
+    <hr class="krijt">
+    <label>Categorieën</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${d.cats.map(c => {
+      const n = d.teams.filter(x=>x.categorie_id===c.id).length;
+      return `<span class="badge ${n>=c.max_teams?'b-rood':'b-live'}">${h(c.naam)} · ${n}/${c.max_teams}</span>`;
+    }).join('') || '—'}</div>
+  </div>`;
+}
+
+function pubInschrijven(el, d, open){
+  if (!open) return el.innerHTML = `<div class="kaart"><div class="leeg">De inschrijvingen zijn gesloten.</div></div>`;
+  el.innerHTML = `<div class="kaart" style="max-width:560px">
+    <h3>Schrijf je ploeg in</h3>
+    <p class="sub">Per ploeg één inschrijving. Meerdere ploegen? Herhaal het formulier.</p>
+    <label>Categorie</label>
+    <select id="p-cat">${d.cats.map(c => {
+      const n = d.teams.filter(x=>x.categorie_id===c.id).length;
+      const vol = n >= c.max_teams;
+      return `<option value="${c.id}" ${vol?'disabled':''}>${h(c.naam)} (${n}/${c.max_teams}${vol?' — VOL':''})</option>`;
+    }).join('')}</select>
+    <div class="rij">
+      <div><label>Clubnaam</label><input id="p-club" placeholder="bv. KVE Drongen"></div>
+      <div><label>Ploegnaam (optioneel)</label><input id="p-team" placeholder="bv. Blauw / A"></div>
+    </div>
+    <div class="rij">
+      <div><label>Contactpersoon</label><input id="p-naam"></div>
+      <div><label>E-mail</label><input id="p-email" type="email"></div>
+      <div><label>GSM</label><input id="p-tel"></div>
+    </div>
+    <div id="p-melding"></div>
+    <button class="btn btn-p" style="margin-top:16px" onclick="app.schrijfIn('${d.t.id}')">Ploeg inschrijven</button>
+  </div>`;
+}
+
+app.schrijfIn = async (tid) => {
+  const cid = $('#p-cat').value, club = $('#p-club').value.trim(),
+        naam = $('#p-naam').value.trim(), email = $('#p-email').value.trim();
+  if (!cid || !club || !naam || !email) return toast('Vul categorie, club, contactpersoon en e-mail in');
+  const { data: team, error } = await sb.from('teams').insert({
+    toernooi_id: tid, categorie_id: cid, club_naam: club, team_naam: $('#p-team').value.trim() || null
+  }).select().single();
+  if (error) return fout(error);
+  await sb.from('team_contacten').insert({ team_id: team.id, naam, email, telefoon: $('#p-tel').value.trim() || null });
+  $('#p-melding').innerHTML = `<div class="melding m-ok">✓ <strong>${h(club)}</strong> is ingeschreven! De organisator heeft je gegevens ontvangen.</div>`;
+  ['#p-club','#p-team','#p-naam','#p-email','#p-tel'].forEach(s => $(s).value = '');
+  toast('Inschrijving gelukt ⚽');
+};
+
+function pubProgramma(el, d){
+  const teamMap = Object.fromEntries(d.teams.map(x => [x.id, x]));
+  const catMap = Object.fromEntries(d.cats.map(x => [x.id, x]));
+  if (!d.wed.length) return el.innerHTML = `<div class="kaart"><div class="leeg">Het speelschema wordt hier gepubliceerd zodra het klaar is.</div></div>`;
+  const perTijd = {};
+  d.wed.forEach(w => (perTijd[w.starttijd] ||= []).push(w));
+  const tijden = Object.keys(perTijd).sort();
+  el.innerHTML = `<div class="kaart">
+    <table><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th style="text-align:center">Uitslag</th></tr>
+    ${tijden.map(tijd => perTijd[tijd].sort((a,b)=>(a.veld||0)-(b.veld||0)).map(w => `<tr>
+      <td><span class="tijd">${w.starttijd||'—'}</span></td>
+      <td><span class="veldtag">Veld ${w.veld||'—'}</span></td>
+      <td>${h(catMap[w.categorie_id]?.naam||'')}</td>
+      <td><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : 'Poule '+h(w.poule||'')}</span></td>
+      <td>${teamNaam(teamMap[w.team_a])} — ${teamNaam(teamMap[w.team_b])}</td>
+      <td class="score" style="text-align:center">${w.score_a==null?'· - ·':'<strong>'+w.score_a+' - '+w.score_b+'</strong>'}</td>
+    </tr>`).join('')).join('')}
+    </table>
+  </div>`;
+}
+
+function pubStanden(el, d){
+  const blokken = d.cats.map(c => {
+    const letters = [...new Set(d.teams.filter(x=>x.categorie_id===c.id&&x.poule).map(x=>x.poule))].sort();
+    if (!letters.length) return '';
+    const ws = d.wed.filter(w => w.categorie_id === c.id && w.fase === 'poule');
+    return `<div class="kaart"><h3>${h(c.naam)}</h3>
+      <div class="poule-grid" style="margin-top:12px">
+      ${letters.map(L => standTabel(L, berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===L), ws.filter(w=>w.poule===L)))).join('')}
+      </div></div>`;
+  }).join('');
+  el.innerHTML = blokken || `<div class="kaart"><div class="leeg">Standen verschijnen hier zodra de poules geloot zijn.</div></div>`;
+}
+
+/* ============================================================
+   SUPER ADMIN
+   ============================================================ */
+async function vAdmin(){
+  if (!isAdmin()) return location.hash = '#/';
+  root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
+  const [ts, cs] = await Promise.all([
+    sb.from('toernooien').select('*').order('created_at', { ascending: false }),
+    sb.from('clubs').select('*'),
+  ]);
+  if (ts.error) return fout(ts.error);
+  const clubMap = Object.fromEntries((cs.data||[]).map(c => [c.id, c]));
+  const teBetalen = (ts.data||[]).filter(t => !t.betaald).length;
+  root().innerHTML = topbar() + `<div class="wrap">
+    <h2 style="font-size:24px">Platformbeheer</h2>
+    <div class="stat-rij">
+      <div class="stat"><div class="n">${(ts.data||[]).length}</div><div class="l">Toernooien</div></div>
+      <div class="stat"><div class="n">${(cs.data||[]).length}</div><div class="l">Clubs</div></div>
+      <div class="stat"><div class="n">${teBetalen}</div><div class="l">Wachten op betaling</div></div>
+      <div class="stat"><div class="n">€ ${(ts.data||[]).filter(t=>t.betaald).length * CONFIG.PRIJS}</div><div class="l">Omzet</div></div>
+    </div>
+    <div class="kaart" style="margin-top:16px">
+      <table><tr><th>Toernooi</th><th>Club</th><th>Datum</th><th>Mededeling</th><th>Status</th><th>Betaald</th></tr>
+      ${(ts.data||[]).map(t => `<tr>
+        <td><strong>${h(t.naam)}</strong></td>
+        <td>${h(clubMap[t.club_id]?.club_naam || '?')}<br><span class="sub" style="font-size:12px">${h(clubMap[t.club_id]?.email||'')}</span></td>
+        <td>${t.datum || '—'}</td>
+        <td class="mono" style="font-size:12.5px">${h(t.betaalref||'—')}</td>
+        <td><span class="badge ${t.status==='gepubliceerd'?'b-live':'b-concept'}">${t.status}</span></td>
+        <td><button class="btn ${t.betaald?'btn-o':'btn-p'} btn-sm" onclick="app.toggleBetaald('${t.id}', ${!t.betaald})">${t.betaald ? '✓ Betaald' : 'Markeer betaald'}</button></td>
+      </tr>`).join('') || '<tr><td colspan="6" class="leeg">Nog geen toernooien.</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+}
+
+app.toggleBetaald = async (id, betaald) => {
+  if (!betaald && !confirm('Betaling terug op "niet betaald" zetten?')) return;
+  const { error } = await sb.from('toernooien').update({ betaald }).eq('id', id);
+  if (error) return fout(error);
+  toast(betaald ? 'Gemarkeerd als betaald ✓' : 'Teruggezet'); render();
+};
+
+boot();
+</script>
+</body>
+</html>
