@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aftrap — jeugdtoernooien organiseren zonder gedoe</title>
-<meta name="description" content="Inschrijvingen, loting en speelschema voor jeugdvoetbaltoernooien in België. €20 per toernooi.">
+<meta name="description" content="Aftrap — toernooien organiseren en oefenwedstrijden vinden voor jeugdvoetbal. Inschrijvingen, loting, speelschema en live standen.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -83,7 +83,6 @@ td.num,th.num{text-align:center;width:42px}
 .hero h1{font-size:clamp(34px,6vw,58px);font-weight:900;letter-spacing:-.025em;margin-bottom:18px}
 .hero h1 em{font-style:normal;color:var(--geel)}
 .hero p{font-size:18px;color:#CBDCD1;max-width:560px;margin:0 auto 30px}
-.prijsstrook{background:var(--geel);color:var(--groen-d);text-align:center;font-weight:800;font-family:'Archivo';padding:12px 20px;font-size:15px}
 .feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:26px}
 .feat{background:var(--wit);border:1px solid var(--lijn);border-radius:var(--r);padding:20px}
 .feat .ico{font-size:22px;margin-bottom:8px}
@@ -126,7 +125,7 @@ td.num,th.num{text-align:center;width:42px}
 <div id="toast"></div>
 <script>
 /* ============================================================
-   TOERNOOIDAG v1
+   AFTRAP v2
    ============================================================ */
 const CONFIG = {
   SUPABASE_URL: 'https://equmwyvxbjjocwetwfcw.supabase.co',
@@ -177,6 +176,11 @@ async function render(){
     if (p[0] === 't' && p[1]) return vBeheer(p[1], p[2] || 'instellingen');
     if (p[0] === 'p' && p[1]) return vPubliek(p[1], p[2] || 'info');
     if (p[0] === 'admin') return vAdmin();
+    if (p[0] === 'wedstrijden') {
+      if (p[1] === 'plaatsen') return vZoekPlaatsen();
+      if (p[1] === 'beheer' && p[2] && p[3]) return vZoekBeheer(p[2], p[3]);
+      return vZoekLijst();
+    }
     return vLanding();
   } catch(e){ fout(e); }
 }
@@ -186,6 +190,7 @@ function topbar(){
   return `<header class="topbar"><div class="topbar-in">
     <a href="#/" class="logo"><span class="bal"></span>${CONFIG.PLATFORM}</a>
     <nav>
+      <a href="#/wedstrijden">Oefenwedstrijden</a>
       ${ingelogd ? `
         <a href="#/dashboard">Mijn toernooien</a>
         ${isAdmin() ? '<a href="#/admin" class="verberg-m">Beheer</a>' : ''}
@@ -204,23 +209,21 @@ function topbar(){
 function vLanding(){
   root().innerHTML = topbar() + `
   <section class="hero"><div class="hero-in">
-    <h1>Jouw jeugdtoernooi,<br>van inschrijving tot <em>eindstand</em>.</h1>
-    <p>Online inschrijvingen, automatische loting en een waterdicht speelschema. Gemaakt voor Belgische voetbalclubs.</p>
-    <a href="#/registreren" class="btn btn-p" style="font-size:16px;padding:14px 28px">Maak je toernooi aan</a>
+    <h1>Toernooien organiseren.<br>Oefenwedstrijden <em>vinden</em>.</h1>
+    <p>E\u00e9n platform voor jeugdvoetbal: online inschrijvingen, automatische loting, een waterdicht speelschema \u2014 en een marktplaats voor vriendschappelijke wedstrijden.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="#/registreren" class="btn btn-p" style="font-size:16px;padding:14px 28px">Start je toernooi</a>
+      <a href="#/wedstrijden" class="btn" style="font-size:16px;padding:14px 28px;background:rgba(255,255,255,.14);color:#fff">Vind een oefenwedstrijd</a>
+    </div>
   </div></section>
-  <div class="prijsstrook">€ ${CONFIG.PRIJS} per toernooi — geen abonnement, geen verrassingen. Aanmaken en testen is gratis.</div>
   <div class="wrap">
     <div class="feat-grid">
-      <div class="feat"><div class="ico">📝</div><h3>Online inschrijvingen</h3><p>Deel één link. Clubs schrijven hun ploegen zelf in per leeftijdscategorie, met automatische limieten.</p></div>
-      <div class="feat"><div class="ico">🎲</div><h3>Slimme loting</h3><p>Automatische pouleverdeling die ploegen van dezelfde club uit elkaar houdt. Nadien nog manueel bij te sturen.</p></div>
-      <div class="feat"><div class="ico">🗓️</div><h3>Speelschema in seconden</h3><p>Velden, wedstrijdduur en pauzes instellen — het schema rolt eruit zonder dubbele boekingen of ploegen die twee keer na elkaar spelen.</p></div>
-      <div class="feat"><div class="ico">⚽</div><h3>Live uitslagen & standen</h3><p>Scores ingeven op je gsm, standen worden meteen berekend. Ouders en coaches volgen alles op de publieke pagina.</p></div>
-      <div class="feat"><div class="ico">🏆</div><h3>Finales automatisch</h3><p>Na de poulefase genereer je met één klik de finale en plaatsingswedstrijden.</p></div>
-      <div class="feat"><div class="ico">💶</div><h3>Half zo duur</h3><p>€ ${CONFIG.PRIJS} per toernooi, betalen via overschrijving of Payconiq. Pas betalen wanneer je publiceert.</p></div>
-    </div>
-    <div class="kaart" style="margin-top:26px;text-align:center">
-      <h3>Zo werkt het</h3>
-      <p class="sub" style="max-width:620px;margin:8px auto 0">1. Maak gratis je toernooi aan en stel categorieën in &nbsp;→&nbsp; 2. Betaal € ${CONFIG.PRIJS} en publiceer je inschrijvingslink &nbsp;→&nbsp; 3. Loting, schema en live standen op de dag zelf.</p>
+      <div class="feat"><div class="ico">\ud83d\udcdd</div><h3>Online inschrijvingen</h3><p>Deel \u00e9\u00e9n link. Clubs schrijven hun ploegen zelf in per leeftijdscategorie, met automatische limieten en deadlines.</p></div>
+      <div class="feat"><div class="ico">\ud83c\udfb2</div><h3>Slimme loting</h3><p>Automatische pouleverdeling die ploegen van dezelfde club uit elkaar houdt. Nadien nog manueel bij te sturen.</p></div>
+      <div class="feat"><div class="ico">\ud83d\uddd3\ufe0f</div><h3>Speelschema in seconden</h3><p>Velden, wedstrijdduur en pauzes instellen \u2014 het schema rolt eruit zonder dubbele boekingen of ploegen die twee keer na elkaar spelen.</p></div>
+      <div class="feat"><div class="ico">\u26bd</div><h3>Live uitslagen & standen</h3><p>Scores ingeven op je gsm, standen worden meteen berekend. Ouders en coaches volgen alles op de publieke pagina.</p></div>
+      <div class="feat"><div class="ico">\ud83c\udfc6</div><h3>Finales automatisch</h3><p>Na de poulefase genereer je met \u00e9\u00e9n klik de finale en de plaatsingswedstrijden.</p></div>
+      <div class="feat"><div class="ico">\ud83e\udd1d</div><h3>Oefenwedstrijden</h3><p>Vrije speelweek of afgelaste wedstrijd? Plaats gratis een zoekertje en vind een tegenstander op jouw niveau.</p></div>
     </div>
   </div>`;
 }
@@ -1036,6 +1039,154 @@ app.toggleBetaald = async (id, betaald) => {
   if (error) return fout(error);
   toast(betaald ? 'Gemarkeerd als betaald ✓' : 'Teruggezet'); render();
 };
+
+/* ============================================================
+   OEFENWEDSTRIJDEN (zoekertjes) — gratis
+   ============================================================ */
+const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U21'];
+const NIVEAUS = ['gewestelijk','provinciaal','interprovinciaal'];
+const PROVINCIES = ['Oost-Vlaanderen','West-Vlaanderen','Antwerpen','Limburg','Vlaams-Brabant','Brussel'];
+const formaatVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 15; return n <= 6 ? '2v2 / 3v3' : n <= 9 ? '5v5' : n <= 13 ? '8v8' : '11v11'; };
+let _zoek = [];
+
+async function vZoekLijst(){
+  root().innerHTML = topbar() + `
+  <section class="hero" style="padding:40px 20px 46px"><div class="hero-in">
+    <h1 style="font-size:clamp(26px,5vw,40px)">Oefenwedstrijden</h1>
+    <p style="margin-bottom:20px">Vrije speelweek of wedstrijd afgelast? Vind een tegenstander op jouw niveau — volledig gratis.</p>
+    <a href="#/wedstrijden/plaatsen" class="btn btn-p">+ Plaats een zoekertje</a>
+  </div></section>
+  <div class="wrap">
+    <div class="kaart"><div class="rij">
+      <div><label>Categorie</label><select id="z-f-cat"><option value="">Alle</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div><label>Niveau</label><select id="z-f-niv"><option value="">Alle</option>${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
+      <div><label>Provincie</label><select id="z-f-prov"><option value="">Alle</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+      <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" id="z-f-gras" style="width:auto"> Enkel kunstgras</label></div>
+    </div></div>
+    <div id="z-lijst"><div class="leeg">Laden…</div></div>
+  </div>`;
+  ['z-f-cat','z-f-niv','z-f-prov','z-f-gras'].forEach(id => $('#'+id).addEventListener('change', tekenZoek));
+  const vandaag = new Date().toISOString().slice(0,10);
+  const { data, error } = await sb.from('zoekertjes').select('*').eq('status','open').order('created_at', { ascending: false });
+  if (error) return fout(error);
+  _zoek = (data || []).filter(z => z.flexibel || !z.datum || z.datum >= vandaag);
+  tekenZoek();
+}
+
+function tekenZoek(){
+  const c = $('#z-f-cat').value, n = $('#z-f-niv').value, p = $('#z-f-prov').value, g = $('#z-f-gras').checked;
+  const lijst = _zoek.filter(z => (!c || z.categorie === c) && (!n || z.niveau === n) && (!p || z.provincie === p) && (!g || z.kunstgras));
+  $('#z-lijst').innerHTML = lijst.map(z => `
+    <div class="kaart">
+      <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
+        <div style="min-width:220px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <span class="badge b-live">${h(z.categorie)}</span>
+            <span class="badge b-concept">${h(z.niveau)}</span>
+            <span class="badge b-concept">${h(formaatVoor(z.categorie))}</span>
+            ${z.kunstgras ? '<span class="badge b-geel">Kunstgras</span>' : ''}
+          </div>
+          <h3>${h(z.club_naam)}</h3>
+          <p class="sub">${h(z.gemeente)} (${h(z.provincie)}) · ${z.thuis_uit === 'beide' ? 'thuis of uit' : 'enkel ' + h(z.thuis_uit)} · ${z.flexibel || !z.datum ? 'datum in overleg' : datumNL(z.datum)}</p>
+          ${z.opmerking ? `<p style="font-size:14px;margin-top:8px">${h(z.opmerking)}</p>` : ''}
+        </div>
+        <div id="z-c-${z.id}" style="text-align:right"><button class="btn btn-o btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button></div>
+      </div>
+    </div>`).join('') || '<div class="kaart"><div class="leeg">Geen zoekertjes gevonden met deze filters. Plaats zelf het eerste!</div></div>';
+}
+
+app.toonContact = (id) => {
+  const z = _zoek.find(x => x.id === id);
+  if (!z) return;
+  $('#z-c-' + id).innerHTML = `<div style="font-size:13.5px">
+    <strong>${h(z.contact_naam)}</strong><br>
+    <a href="mailto:${h(z.contact_email)}?subject=${encodeURIComponent('Oefenwedstrijd ' + z.categorie + ' — via Aftrap')}">${h(z.contact_email)}</a>
+    ${z.contact_telefoon ? '<br>' + h(z.contact_telefoon) : ''}
+  </div>`;
+};
+
+function vZoekPlaatsen(){
+  const chk = 'display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt)';
+  root().innerHTML = topbar() + `<div class="wrap" style="max-width:640px">
+    <div class="kaart">
+      <h3>Plaats een zoekertje</h3>
+      <p class="sub">Gratis en zonder account. Zoekertjes met een speeldatum in het verleden verdwijnen automatisch uit de lijst.</p>
+      <div class="rij">
+        <div><label>Clubnaam *</label><input id="z-club" placeholder="bv. KSK Lovendegem"></div>
+        <div><label>Gemeente *</label><input id="z-gemeente" placeholder="bv. Lovendegem"></div>
+      </div>
+      <div class="rij">
+        <div><label>Provincie</label><select id="z-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+        <div><label>Categorie *</label><select id="z-cat">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+        <div><label>Niveau *</label><select id="z-niv">${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
+      </div>
+      <div class="rij">
+        <div><label>Speeldatum</label><input id="z-datum" type="date"></div>
+        <div><label>Of flexibel</label><label style="${chk};margin:0;height:41px"><input type="checkbox" id="z-flex" style="width:auto"> Datum in overleg</label></div>
+        <div><label>Thuis / uit</label><select id="z-tu"><option value="beide">Beide mogelijk</option><option value="thuis">Enkel thuis</option><option value="uit">Enkel uit</option></select></div>
+      </div>
+      <label style="${chk};margin-top:14px"><input type="checkbox" id="z-gras" style="width:auto"> Kunstgras beschikbaar (thuis)</label>
+      <label>Opmerking (optioneel)</label>
+      <textarea id="z-opm" rows="2" placeholder="bv. liefst zaterdagvoormiddag"></textarea>
+      <hr class="krijt">
+      <div class="rij">
+        <div><label>Contactpersoon *</label><input id="z-cnaam"></div>
+        <div><label>E-mail *</label><input id="z-cemail" type="email"></div>
+        <div><label>GSM (optioneel)</label><input id="z-ctel"></div>
+      </div>
+      <div id="z-melding"></div>
+      <button class="btn btn-p" style="margin-top:16px" onclick="app.plaatsZoekertje()">Zoekertje plaatsen</button>
+    </div>
+  </div>`;
+}
+
+app.plaatsZoekertje = async () => {
+  const v = id => $('#' + id).value.trim();
+  if (!v('z-club') || !v('z-gemeente') || !v('z-cnaam') || !v('z-cemail')) return toast('Vul de verplichte velden in (*)');
+  if (!v('z-datum') && !$('#z-flex').checked) return toast('Kies een speeldatum of vink "datum in overleg" aan');
+  const { data: z, error } = await sb.from('zoekertjes').insert({
+    club_naam: v('z-club'), gemeente: v('z-gemeente'), provincie: $('#z-prov').value,
+    categorie: $('#z-cat').value, niveau: $('#z-niv').value,
+    datum: v('z-datum') || null, flexibel: $('#z-flex').checked,
+    thuis_uit: $('#z-tu').value, kunstgras: $('#z-gras').checked,
+    opmerking: v('z-opm') || null,
+    contact_naam: v('z-cnaam'), contact_email: v('z-cemail'), contact_telefoon: v('z-ctel') || null,
+  }).select().single();
+  if (error) return fout(error);
+  const code = rand(10);
+  await sb.from('zoekertje_codes').insert({ zoekertje_id: z.id, code });
+  const link = location.origin + location.pathname + '#/wedstrijden/beheer/' + z.id + '/' + code;
+  $('#z-melding').innerHTML = `<div class="melding m-ok">✓ Je zoekertje staat online!<br><br>
+    <strong>Bewaar deze beheerlink</strong> — daarmee markeer je het zoekertje later als "gevonden" of verwijder je het:<br>
+    <input readonly value="${h(link)}" style="margin-top:8px" onclick="this.select()">
+    <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd ✓'))">Kopieer link</button>
+  </div>`;
+  toast('Zoekertje geplaatst ⚽');
+};
+
+async function vZoekBeheer(id, code){
+  root().innerHTML = topbar() + `<div class="wrap wrap-smal"><div class="kaart" id="z-beheer"><div class="leeg">Laden…</div></div></div>`;
+  const { data: z } = await sb.from('zoekertjes').select('*').eq('id', id).maybeSingle();
+  if (!z) return $('#z-beheer').innerHTML = '<div class="leeg">Zoekertje niet gevonden (mogelijk al verwijderd).</div>';
+  $('#z-beheer').innerHTML = `
+    <h3>Beheer zoekertje</h3>
+    <p class="sub">${h(z.club_naam)} · ${h(z.categorie)} ${h(z.niveau)} · ${z.flexibel || !z.datum ? 'datum in overleg' : datumNL(z.datum)}</p>
+    <p style="margin-top:10px">Status: <span class="badge ${z.status === 'open' ? 'b-live' : 'b-concept'}">${h(z.status)}</span></p>
+    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+      ${z.status === 'open' ? `<button class="btn btn-p" onclick="app.zoekActie('${h(id)}','${h(code)}','gevonden')">✓ Tegenstander gevonden</button>` : ''}
+      <button class="btn btn-r" onclick="app.zoekActie('${h(id)}','${h(code)}','verwijder')">Verwijder zoekertje</button>
+    </div>`;
+}
+
+app.zoekActie = async (id, code, actie) => {
+  if (actie === 'verwijder' && !confirm('Zoekertje definitief verwijderen?')) return;
+  const { data, error } = await sb.rpc('zoekertje_beheer', { zid: id, zcode: code, actie });
+  if (error) return fout(error);
+  if (!data) return toast('Ongeldige beheerlink');
+  toast(actie === 'gevonden' ? 'Gemarkeerd als gevonden ✓' : 'Zoekertje verwijderd');
+  location.hash = '#/wedstrijden';
+};
+
 
 boot();
 </script>
