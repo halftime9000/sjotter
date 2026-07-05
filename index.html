@@ -115,6 +115,8 @@ td.num,th.num{text-align:center;width:42px}
 .stat .l{font-size:12px;color:var(--grijs);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .iban{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;background:var(--gras-l);color:var(--groen);padding:10px 16px;border-radius:8px;display:inline-block;margin:4px 0}
 
+/* ---------- categorie-bal ---------- */
+.cat-bal{width:58px;height:58px;border-radius:50%;background:linear-gradient(155deg,var(--blauw-d),var(--blauw));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Archivo';font-weight:900;font-size:18px;flex-shrink:0;box-shadow:var(--shadow)}
 /* ---------- split landing ---------- */
 .btn-b{background:var(--hemel);color:#fff}
 .btn-b:hover{background:#3B72D4}
@@ -263,7 +265,7 @@ function vAuth(modus){
     <div class="kaart">
       <h3>${reg ? 'Registreer je club' : 'Aanmelden'}</h3>
       <p class="sub">${reg ? 'Gratis account — je betaalt pas bij publicatie van een toernooi.' : 'Welkom terug.'}</p>
-      ${reg ? `<label>Clubnaam</label><input id="f-club" placeholder="bv. KSK Lovendegem">` : ''}
+      ${reg ? `<label>Clubnaam</label><input id="f-club">` : ''}
       <label>E-mailadres</label><input id="f-email" type="email" autocomplete="email">
       <label>Wachtwoord</label><input id="f-ww" type="password" autocomplete="${reg?'new-password':'current-password'}">
       <div id="auth-melding"></div>
@@ -417,11 +419,11 @@ function tabInstellingen(el, d){
       <div><label>Datum</label><input id="i-datum" type="date" value="${t.datum||''}"></div>
     </div>
     <div class="rij">
-      <div><label>Locatie</label><input id="i-locatie" value="${h(t.locatie||'')}" placeholder="bv. Sportpark De Kraenepoel, Lovendegem"></div>
+      <div><label>Locatie</label><input id="i-locatie" value="${h(t.locatie||'')}"></div>
       <div><label>Contact e-mail (publiek)</label><input id="i-email" value="${h(t.contact_email||'')}"></div>
     </div>
     <label>Beschrijving (publieke pagina)</label>
-    <textarea id="i-beschrijving" rows="3" placeholder="Praktische info, inschrijvingsgeld per ploeg, parking, kantine…">${h(t.beschrijving||'')}</textarea>
+    <textarea id="i-beschrijving" rows="3">${h(t.beschrijving||'')}</textarea>
   </div>
   <div class="kaart">
     <h3>Speelschema-instellingen</h3>
@@ -486,7 +488,7 @@ function tabCategorieen(el, d){
     ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
     <hr class="krijt">
     <div class="rij">
-      <div><label>Naam</label><input id="c-naam" placeholder="bv. U10"></div>
+      <div><label>Naam</label><input id="c-naam"></div>
       <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="32" value="8"></div>
       <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="8" value="2"></div>
       <div style="align-self:flex-end"><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%">+ Toevoegen</button></div>
@@ -532,8 +534,8 @@ async function tabTeams(el, d){
       </table>` : '<div class="leeg">Nog geen inschrijvingen.</div>'}
       <hr class="krijt">
       <div class="rij">
-        <div><label>Clubnaam</label><input id="t-club-${c.id}" placeholder="bv. KVE Drongen"></div>
-        <div><label>Ploegnaam (optioneel)</label><input id="t-naam-${c.id}" placeholder="bv. Blauw"></div>
+        <div><label>Clubnaam</label><input id="t-club-${c.id}"></div>
+        <div><label>Ploegnaam (optioneel)</label><input id="t-naam-${c.id}"></div>
         <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.nieuwTeam('${d.t.id}','${c.id}')" style="width:100%">+ Ploeg toevoegen</button></div>
       </div>
     </div>`;
@@ -962,8 +964,8 @@ function pubInschrijven(el, d, open){
       return `<option value="${c.id}" ${vol?'disabled':''}>${h(c.naam)} (${n}/${c.max_teams}${vol?' — VOL':''})</option>`;
     }).join('')}</select>
     <div class="rij">
-      <div><label>Clubnaam</label><input id="p-club" placeholder="bv. KVE Drongen"></div>
-      <div><label>Ploegnaam (optioneel)</label><input id="p-team" placeholder="bv. Blauw / A"></div>
+      <div><label>Clubnaam</label><input id="p-club"></div>
+      <div><label>Ploegnaam (optioneel)</label><input id="p-team"></div>
     </div>
     <div class="rij">
       <div><label>Contactpersoon</label><input id="p-naam"></div>
@@ -1069,7 +1071,7 @@ async function vAdmin(){
       ${(zs.data||[]).map(z => `<tr>
         <td><strong>${h(z.club_naam)}</strong><br><span class="sub" style="font-size:12px">${h(z.gemeente)} (${h(z.provincie)})</span></td>
         <td>${h(z.categorie)}</td>
-        <td>${h(z.niveau)}</td>
+        <td>${h(z.niveau)}${z.niveau_code ? ' · ' + h(z.niveau_code) : ''}</td>
         <td>${z.flexibel || !z.datum ? 'in overleg' : z.datum}</td>
         <td style="font-size:12.5px">${h(z.contact_naam)}<br>${h(z.contact_email)}${z.contact_telefoon ? '<br>'+h(z.contact_telefoon) : ''}</td>
         <td><button class="btn btn-o btn-sm" onclick="app.adminZoekStatus('${z.id}', '${z.status==='open'?'gevonden':'open'}')">${z.status==='open' ? '🟢 open' : 'gevonden'}</button></td>
@@ -1132,7 +1134,8 @@ app.adminVerwijderClub = async (id) => {
    ============================================================ */
 const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U21'];
 const NIVEAUS = ['gewestelijk','provinciaal','interprovinciaal'];
-const PROVINCIES = ['Oost-Vlaanderen','West-Vlaanderen','Antwerpen','Limburg','Vlaams-Brabant','Brussel'];
+const PROVINCIES = ['Antwerpen','Limburg','Oost-Vlaanderen','Vlaams-Brabant','West-Vlaanderen','Brussel','Henegouwen','Luik','Luxemburg','Namen','Waals-Brabant'];
+const NIVEAU_CODES = ['1','1-2','2','2-3','3'];
 const formaatVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 15; return n <= 6 ? '2v2 / 3v3' : n <= 9 ? '5v5' : n <= 13 ? '8v8' : '11v11'; };
 let _zoek = [];
 
@@ -1165,17 +1168,20 @@ function tekenZoek(){
   const lijst = _zoek.filter(z => (!c || z.categorie === c) && (!n || z.niveau === n) && (!p || z.provincie === p) && (!g || z.kunstgras));
   $('#z-lijst').innerHTML = lijst.map(z => `
     <div class="kaart">
-      <div style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start">
-        <div style="min-width:220px">
+      <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <div style="display:flex;gap:16px;min-width:260px;align-items:flex-start">
+        <div class="cat-bal">${h(z.categorie)}</div>
+        <div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-            <span class="badge b-live">${h(z.categorie)}</span>
             <span class="badge b-concept">${h(z.niveau)}</span>
+            ${z.niveau_code ? '<span class="badge b-live">Niveau '+h(z.niveau_code)+'</span>' : ''}
             <span class="badge b-concept">${h(formaatVoor(z.categorie))}</span>
             ${z.kunstgras ? '<span class="badge b-geel">Kunstgras</span>' : ''}
           </div>
           <h3>${h(z.club_naam)}</h3>
           <p class="sub">${h(z.gemeente)} (${h(z.provincie)}) · ${z.thuis_uit === 'beide' ? 'thuis of uit' : 'enkel ' + h(z.thuis_uit)} · ${z.flexibel || !z.datum ? 'datum in overleg' : datumNL(z.datum)}</p>
           ${z.opmerking ? `<p style="font-size:14px;margin-top:8px">${h(z.opmerking)}</p>` : ''}
+        </div>
         </div>
         <div id="z-c-${z.id}" style="text-align:right"><button class="btn btn-o btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button></div>
       </div>
@@ -1199,13 +1205,14 @@ function vZoekPlaatsen(){
       <h3>Plaats een zoekertje</h3>
       <p class="sub">Gratis en zonder account. Zoekertjes met een speeldatum in het verleden verdwijnen automatisch uit de lijst.</p>
       <div class="rij">
-        <div><label>Clubnaam *</label><input id="z-club" placeholder="bv. KSK Lovendegem"></div>
-        <div><label>Gemeente *</label><input id="z-gemeente" placeholder="bv. Lovendegem"></div>
+        <div><label>Clubnaam *</label><input id="z-club"></div>
+        <div><label>Gemeente *</label><input id="z-gemeente"></div>
       </div>
       <div class="rij">
         <div><label>Provincie</label><select id="z-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
         <div><label>Categorie *</label><select id="z-cat">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
         <div><label>Niveau *</label><select id="z-niv">${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
+        <div><label>Niveaucode</label><select id="z-code"><option value="">—</option>${NIVEAU_CODES.map(n=>`<option>${n}</option>`).join('')}</select></div>
       </div>
       <div class="rij">
         <div><label>Speeldatum</label><input id="z-datum" type="date"></div>
@@ -1214,7 +1221,7 @@ function vZoekPlaatsen(){
       </div>
       <label style="${chk};margin-top:14px"><input type="checkbox" id="z-gras" style="width:auto"> Kunstgras beschikbaar (thuis)</label>
       <label>Opmerking (optioneel)</label>
-      <textarea id="z-opm" rows="2" placeholder="bv. liefst zaterdagvoormiddag"></textarea>
+      <textarea id="z-opm" rows="2"></textarea>
       <hr class="krijt">
       <div class="rij">
         <div><label>Contactpersoon *</label><input id="z-cnaam"></div>
@@ -1233,7 +1240,7 @@ app.plaatsZoekertje = async () => {
   if (!v('z-datum') && !$('#z-flex').checked) return toast('Kies een speeldatum of vink "datum in overleg" aan');
   const { data: z, error } = await sb.from('zoekertjes').insert({
     club_naam: v('z-club'), gemeente: v('z-gemeente'), provincie: $('#z-prov').value,
-    categorie: $('#z-cat').value, niveau: $('#z-niv').value,
+    categorie: $('#z-cat').value, niveau: $('#z-niv').value, niveau_code: $('#z-code').value || null,
     datum: v('z-datum') || null, flexibel: $('#z-flex').checked,
     thuis_uit: $('#z-tu').value, kunstgras: $('#z-gras').checked,
     opmerking: v('z-opm') || null,
