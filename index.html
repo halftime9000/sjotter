@@ -116,6 +116,14 @@ td.num,th.num{text-align:center;width:42px}
 .stat .l{font-size:12px;color:var(--grijs);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .iban{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;background:var(--gras-l);color:var(--groen);padding:10px 16px;border-radius:8px;display:inline-block;margin:4px 0}
 
+/* ---------- topbar pillen ---------- */
+.nav-pil{display:inline-flex;align-items:center;border:none;border-radius:99px;padding:8px 15px;font-weight:700;font-size:13.5px;white-space:nowrap;transition:.15s;cursor:pointer}
+.pil-blauw{background:var(--hemel);color:#fff}
+.pil-blauw:hover{background:#3B72D4}
+.pil-groen{background:var(--gras);color:#fff}
+.pil-groen:hover{background:#1B8A4C}
+.pil-wit{background:#fff;color:var(--inkt)}
+.pil-wit:hover{background:#E4E9E4}
 /* ---------- categorie-bal ---------- */
 .cat-bal{width:58px;height:58px;border-radius:50%;background:linear-gradient(155deg,var(--blauw-d),var(--blauw));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Archivo';font-weight:900;font-size:18px;flex-shrink:0;box-shadow:var(--shadow)}
 /* ---------- split landing ---------- */
@@ -140,7 +148,8 @@ td.num,th.num{text-align:center;width:42px}
   .topbar nav a.verberg-m{display:none}
   .topbar-in{padding:0 10px;gap:6px}
   .topbar nav{gap:0}
-  .topbar nav a,.topbar nav button{padding:8px 7px;font-size:12.5px;white-space:nowrap}
+  .nav-pil{padding:7px 10px;font-size:12px}
+  .topbar nav{gap:4px}
   .logo{flex-direction:column;gap:2px;font-size:12px;letter-spacing:0}
   .logo .bal{width:16px;height:16px}
   .logo .bal::after{inset:4px}
@@ -219,14 +228,15 @@ function topbar(){
   return `<header class="topbar"><div class="topbar-in">
     <a href="#/" class="logo"><span class="bal"></span><span class="logo-tekst">${CONFIG.PLATFORM}</span></a>
     <nav>
-      <a href="#/wedstrijden">Oefenwedstrijden</a>
       ${ingelogd ? `
-        <a href="#/dashboard">Mijn toernooien</a>
-        ${isAdmin() ? '<a href="#/admin" class="verberg-m">Beheer</a>' : ''}
-        <button onclick="app.uitloggen()">Afmelden</button>
+        <a href="#/wedstrijden" class="nav-pil pil-blauw">Oefenwedstrijden</a>
+        <a href="#/dashboard" class="nav-pil pil-groen">Mijn toernooien</a>
+        ${isAdmin() ? '<a href="#/admin" class="nav-pil pil-wit verberg-m">Beheer</a>' : ''}
+        <button class="nav-pil pil-wit" onclick="app.uitloggen()">Afmelden</button>
       ` : `
-        <a href="#/login">Aanmelden</a>
-        <a href="#/registreren" class="btn btn-p btn-sm">Start je toernooi</a>
+        <a href="#/wedstrijden" class="nav-pil pil-blauw">Oefenwedstrijden</a>
+        <a href="#/registreren" class="nav-pil pil-groen">Start je toernooi</a>
+        <a href="#/login" class="nav-pil pil-wit">Aanmelden</a>
       `}
     </nav>
   </div></header>`;
