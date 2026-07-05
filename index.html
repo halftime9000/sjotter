@@ -138,6 +138,10 @@ td.num,th.num{text-align:center;width:42px}
 @media(max-width:860px){.split{grid-template-columns:1fr;min-height:auto}.paneel{padding:52px 24px}}
 @media(max-width:640px){
   .topbar nav a.verberg-m{display:none}
+  .topbar-in{padding:0 12px;gap:8px}
+  .topbar nav{gap:2px}
+  .topbar nav a,.topbar nav button{padding:8px 9px;font-size:13px;white-space:nowrap}
+  .logo{font-size:17px}
   .kaart{padding:16px}
   td,th{padding:7px 6px;font-size:13px}
 }
@@ -213,7 +217,7 @@ function topbar(){
   return `<header class="topbar"><div class="topbar-in">
     <a href="#/" class="logo"><span class="bal"></span>${CONFIG.PLATFORM}</a>
     <nav>
-      <a href="#/wedstrijden">Oefenwedstrijden</a>
+      <a href="#/wedstrijden" class="verberg-m">Oefenwedstrijden</a>
       ${ingelogd ? `
         <a href="#/dashboard">Mijn toernooien</a>
         ${isAdmin() ? '<a href="#/admin" class="verberg-m">Beheer</a>' : ''}
@@ -306,7 +310,7 @@ app.login = async () => {
   location.hash = '#/dashboard';
 };
 
-app.uitloggen = async () => { await sb.auth.signOut(); sessie = null; mijnClub = null; location.hash = '#/'; };
+app.uitloggen = async () => { await sb.auth.signOut(); sessie = null; mijnClub = null; if (location.hash === '' || location.hash === '#/') render(); else location.hash = '#/'; toast('Afgemeld'); };
 
 /* ============================================================
    DASHBOARD (club)
