@@ -506,7 +506,7 @@ function tabCategorieen(el, d){
     ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
     <hr class="krijt">
     <div class="rij">
-      <div><label>Naam</label><input id="c-naam"></div>
+      <div><label>Categorie</label><select id="c-naam">${Array.from({length:14},(_,i)=>`<option>U${i+6}</option>`).join('')}</select></div>
       <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="32" value="8"></div>
       <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="8" value="2"></div>
       <div style="align-self:flex-end"><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%">+ Toevoegen</button></div>
@@ -515,8 +515,8 @@ function tabCategorieen(el, d){
 }
 
 app.nieuweCat = async (tid) => {
-  const naam = $('#c-naam').value.trim();
-  if (!naam) return toast('Geef een naam');
+  const naam = $('#c-naam').value;
+  if (!naam) return toast('Kies een categorie');
   const { error } = await sb.from('categorieen').insert({
     toernooi_id: tid, naam, max_teams: +$('#c-max').value || 8, aantal_poules: +$('#c-poules').value || 1,
     volgorde: parseInt(naam.replace(/\D/g,'')) || 99
