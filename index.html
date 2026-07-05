@@ -138,10 +138,12 @@ td.num,th.num{text-align:center;width:42px}
 @media(max-width:860px){.split{grid-template-columns:1fr;min-height:auto}.paneel{padding:52px 24px}}
 @media(max-width:640px){
   .topbar nav a.verberg-m{display:none}
-  .topbar-in{padding:0 12px;gap:8px}
-  .topbar nav{gap:2px}
-  .topbar nav a,.topbar nav button{padding:8px 9px;font-size:13px;white-space:nowrap}
-  .logo{font-size:17px}
+  .topbar-in{padding:0 10px;gap:6px}
+  .topbar nav{gap:0}
+  .topbar nav a,.topbar nav button{padding:8px 7px;font-size:12.5px;white-space:nowrap}
+  .logo{flex-direction:column;gap:2px;font-size:12px;letter-spacing:0}
+  .logo .bal{width:16px;height:16px}
+  .logo .bal::after{inset:4px}
   .kaart{padding:16px}
   td,th{padding:7px 6px;font-size:13px}
 }
@@ -215,9 +217,9 @@ async function render(){
 function topbar(){
   const ingelogd = !!sessie;
   return `<header class="topbar"><div class="topbar-in">
-    <a href="#/" class="logo"><span class="bal"></span>${CONFIG.PLATFORM}</a>
+    <a href="#/" class="logo"><span class="bal"></span><span class="logo-tekst">${CONFIG.PLATFORM}</span></a>
     <nav>
-      <a href="#/wedstrijden" class="verberg-m">Oefenwedstrijden</a>
+      <a href="#/wedstrijden">Oefenwedstrijden</a>
       ${ingelogd ? `
         <a href="#/dashboard">Mijn toernooien</a>
         ${isAdmin() ? '<a href="#/admin" class="verberg-m">Beheer</a>' : ''}
