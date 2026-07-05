@@ -390,6 +390,10 @@ async function vBeheer(id, tab){
   let d;
   try { d = await laadToernooi(id); } catch(e){ return fout(e); }
   const { t } = d;
+  if (t.club_id !== sessie.user.id && !isAdmin()) {
+    root().innerHTML = topbar() + `<div class="wrap"><div class="kaart"><div class="leeg">Je hebt geen toegang tot het beheer van dit toernooi.</div></div></div>`;
+    return;
+  }
   const T = n => `#/t/${id}/${n}`;
   const tel = c => d.teams.filter(x => x.categorie_id === c.id).length;
 
@@ -988,7 +992,7 @@ function pubInschrijven(el, d, open){
     <div class="rij">
       <div><label>Contactpersoon</label><input id="p-naam"></div>
       <div><label>E-mail</label><input id="p-email" type="email"></div>
-      <div><label>GSM</label><input id="p-tel"></div>
+      <div><label>GSM *</label><input id="p-tel"></div>
     </div>
     <div id="p-melding"></div>
     <button class="btn btn-p" style="margin-top:16px" onclick="app.schrijfIn('${d.t.id}')">Ploeg inschrijven</button>
@@ -997,13 +1001,13 @@ function pubInschrijven(el, d, open){
 
 app.schrijfIn = async (tid) => {
   const cid = $('#p-cat').value, club = $('#p-club').value.trim(),
-        naam = $('#p-naam').value.trim(), email = $('#p-email').value.trim();
-  if (!cid || !club || !naam || !email) return toast('Vul categorie, club, contactpersoon en e-mail in');
+        naam = $('#p-naam').value.trim(), email = $('#p-email').value.trim(), tel = $('#p-tel').value.trim();
+  if (!cid || !club || !naam || !email || !tel) return toast('Vul alle verplichte velden in (*)');
   const { data: team, error } = await sb.from('teams').insert({
     toernooi_id: tid, categorie_id: cid, club_naam: club, team_naam: $('#p-team').value.trim() || null
   }).select().single();
   if (error) return fout(error);
-  await sb.from('team_contacten').insert({ team_id: team.id, naam, email, telefoon: $('#p-tel').value.trim() || null });
+  await sb.from('team_contacten').insert({ team_id: team.id, naam, email, telefoon: tel });
   $('#p-melding').innerHTML = `<div class="melding m-ok">✓ <strong>${h(club)}</strong> is ingeschreven! De organisator heeft je gegevens ontvangen.</div>`;
   ['#p-club','#p-team','#p-naam','#p-email','#p-tel'].forEach(s => $(s).value = '');
   toast('Inschrijving gelukt ⚽');
