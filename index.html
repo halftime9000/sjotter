@@ -824,16 +824,15 @@ function tabUitslagen(el, d){
     const letters = [...new Set(d.teams.filter(x=>x.categorie_id===c.id&&x.poule).map(x=>x.poule))].sort();
     return `<div class="kaart">
       <h3>${h(c.naam)}</h3>
-      <table style="margin-top:10px"><tr><th>Tijd</th><th></th><th>Wedstrijd</th><th style="text-align:center">Score</th><th></th></tr>
+      <table style="margin-top:10px"><tr><th>Tijd</th><th></th><th>Wedstrijd</th><th style="text-align:center">Score</th></tr>
       ${ws.map(w => `<tr>
         <td><span class="tijd">${w.starttijd||'—'}</span></td>
         <td><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : h(w.poule||'')}</span></td>
         <td>${teamNaam(teamMap[w.team_a])} — ${teamNaam(teamMap[w.team_b])}</td>
         <td class="score" style="text-align:center;white-space:nowrap">
-          <input id="sa-${w.id}" type="number" min="0" value="${w.score_a ?? ''}"> -
-          <input id="sb-${w.id}" type="number" min="0" value="${w.score_b ?? ''}">
+          <input id="sa-${w.id}" type="number" min="0" value="${w.score_a ?? ''}" onchange="app.autoScore('${w.id}')"> -
+          <input id="sb-${w.id}" type="number" min="0" value="${w.score_b ?? ''}" onchange="app.autoScore('${w.id}')">
         </td>
-        <td><button class="btn btn-o btn-sm" onclick="app.bewaarScore('${w.id}')">✓</button></td>
       </tr>`).join('')}
       </table>
       ${letters.length ? `<hr class="krijt"><div class="poule-grid">${letters.map(L => standTabel(L,
@@ -849,8 +848,9 @@ function standTabel(L, stand){
   </table></div>`;
 }
 
-app.bewaarScore = async (wid) => {
+app.autoScore = async (wid) => {
   const a = $(`#sa-${wid}`).value, b = $(`#sb-${wid}`).value;
+  if ((a === '') !== (b === '')) return; // wacht tot beide ingevuld (of beide leeg)
   const { error } = await sb.from('wedstrijden').update({
     score_a: a === '' ? null : +a, score_b: b === '' ? null : +b
   }).eq('id', wid);
