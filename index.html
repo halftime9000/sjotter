@@ -158,8 +158,8 @@ td.num,th.num{text-align:center;width:42px}
 .split{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 60px)}
 .paneel{position:relative;overflow:hidden;color:#fff;padding:76px 52px;display:flex;flex-direction:column;justify-content:center}
 .paneel::before{content:'';position:absolute;width:560px;height:560px;border:2px dashed rgba(255,255,255,.13);border-radius:50%;top:-170px;right:-170px;pointer-events:none}
-.paneel-t{background:linear-gradient(155deg,var(--groen-d) 0%,#1A6438 100%)}
-.paneel-w{background:linear-gradient(155deg,var(--blauw-d) 0%,var(--blauw) 100%)}
+.paneel-t{background:linear-gradient(155deg,rgba(13,59,32,.93) 0%,rgba(26,100,56,.90) 100%),url('foto-toernooi.jpg') center/cover no-repeat,linear-gradient(155deg,var(--groen-d),#1A6438)}
+.paneel-w{background:linear-gradient(155deg,rgba(22,35,63,.93) 0%,rgba(44,79,140,.90) 100%),url('foto-oefenmatch.jpg') center/cover no-repeat,linear-gradient(155deg,var(--blauw-d),var(--blauw))}
 .paneel .tag{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:14px}
 .paneel h2{font-size:clamp(26px,3.4vw,40px);font-weight:800;letter-spacing:-.005em;word-spacing:.12em;margin-bottom:14px}
 .paneel p.lead{font-size:16px;opacity:.85;max-width:440px;margin-bottom:22px}
@@ -268,7 +268,8 @@ async function boot(){
 
 async function render(){
   if (location.hash.includes('access_token=')) {
-    setTimeout(() => { location.hash = '#/dashboard'; }, 400);
+    const herstel = location.hash.includes('type=recovery');
+    setTimeout(() => { location.hash = herstel ? '#/nieuw-wachtwoord' : '#/dashboard'; }, 400);
     return;
   }
   if (window._tvRot) { clearInterval(window._tvRot); window._tvRot = null; }
@@ -278,10 +279,13 @@ async function render(){
   window.scrollTo(0,0);
   try {
     if (p[0] === 'login') return vAuth('login');
+    if (p[0] === 'wachtwoord') return vWachtwoordVergeten();
+    if (p[0] === 'nieuw-wachtwoord') return vNieuwWachtwoord();
     if (p[0] === 'registreren') return vAuth('registreren');
     if (p[0] === 'dashboard') return vDashboard();
     if (p[0] === 't' && p[1]) return vBeheer(p[1], p[2] || 'instellingen');
     if (p[0] === 'p' && p[1]) return vPubliek(p[1], p[2] || 'info', p[3]);
+    if (p[0] === 'toernooien') return vKalender();
     if (p[0] === 'privacy') return vPrivacy();
     if (p[0] === 'help') return vHelp();
     if (p[0] === 'admin') return vAdmin();
@@ -331,6 +335,7 @@ function vLanding(){
         <li>Live uitslagen, standen en finales op de dag zelf</li>
       </ul>
       <a href="#/registreren" class="btn btn-p">Start je toernooi</a>
+      <a href="#/toernooien" style="margin-top:14px;color:rgba(255,255,255,.75);font-size:13.5px">Bekijk de toernooikalender →</a>
     </section>
     <section class="paneel paneel-w">
       <div class="tag">Voor trainers</div>
@@ -365,6 +370,7 @@ function vAuth(modus){
         <button class="btn btn-p" onclick="app.${reg?'registreer':'login'}()">${reg ? 'Account aanmaken' : 'Aanmelden'}</button>
         <a href="#/${reg?'login':'registreren'}" style="font-size:13.5px">${reg ? 'Al een account? Meld je aan' : 'Nieuw hier? Registreer je club'}</a>
       </div>
+      ${reg ? '' : '<div style="margin-top:12px"><a href="#/wachtwoord" style="font-size:13px;color:var(--grijs)">Wachtwoord vergeten?</a></div>'}
     </div>
   </div>`;
 }
@@ -1403,10 +1409,11 @@ function pubTeam(el, d, teamId){
 async function vAdmin(){
   if (!isAdmin()) return location.hash = '#/';
   root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
-  const [ts, cs, zs] = await Promise.all([
+  const [ts, cs, zs, ks] = await Promise.all([
     sb.from('toernooien').select('*').order('created_at', { ascending: false }),
     sb.from('clubs').select('*').order('created_at', { ascending: false }),
     sb.from('zoekertjes').select('*').order('created_at', { ascending: false }),
+    sb.from('kalender').select('*').order('datum'),
   ]);
   if (ts.error) return fout(ts.error);
   const clubMap = Object.fromEntries((cs.data||[]).map(c => [c.id, c]));
@@ -1453,6 +1460,20 @@ async function vAdmin(){
     </div>
 
     <div class="kaart">
+      <h3>Toernooikalender <span class="sub" style="font-weight:400">(externe toernooien — moderatie)</span></h3>
+      <table style="margin-top:10px"><tr><th>Toernooi</th><th>Club / plaats</th><th>Datum</th><th>Link</th><th>Status</th><th></th></tr>
+      ${(ks.data||[]).map(k => `<tr>
+        <td><strong>${h(k.naam)}</strong>${k.categorieen ? '<br><span class="sub" style="font-size:12px">' + h(k.categorieen) + '</span>' : ''}</td>
+        <td>${h(k.club||'')}<br><span class="sub" style="font-size:12px">${h(k.gemeente||'')} (${h(k.provincie||'')})</span></td>
+        <td>${k.datum||'—'}</td>
+        <td style="font-size:12px">${k.link ? `<a href="${h(/^https?:\/\//.test(k.link)?k.link:'https://'+k.link)}" target="_blank">link ↗</a>` : '—'}</td>
+        <td><button class="btn ${k.status==='goedgekeurd'?'btn-o':'btn-p'} btn-sm" onclick="app.kalenderStatus('${k.id}','${k.status==='goedgekeurd'?'nieuw':'goedgekeurd'}')">${k.status==='goedgekeurd' ? '✓ live' : 'Keur goed'}</button></td>
+        <td><button class="btn btn-r btn-sm" onclick="app.kalenderVerwijder('${k.id}')">✕</button></td>
+      </tr>`).join('') || '<tr><td colspan="6" class="leeg">Nog geen externe toernooien ingediend.</td></tr>'}
+      </table>
+    </div>
+
+    <div class="kaart">
       <h3>Clubs</h3>
       <table style="margin-top:10px"><tr><th>Club</th><th>E-mail</th><th>Sinds</th><th class="num">Toernooien</th><th></th></tr>
       ${(cs.data||[]).map(c => `<tr>
@@ -1492,6 +1513,19 @@ app.adminVerwijderZoekertje = async (id) => {
   const { error } = await sb.from('zoekertjes').delete().eq('id', id);
   if (error) return fout(error);
   toast('Zoekertje verwijderd'); render();
+};
+
+app.kalenderStatus = async (id, status) => {
+  const { error } = await sb.from('kalender').update({ status }).eq('id', id);
+  if (error) return fout(error);
+  render();
+};
+
+app.kalenderVerwijder = async (id) => {
+  if (!confirm('Kalenderitem verwijderen?')) return;
+  const { error } = await sb.from('kalender').delete().eq('id', id);
+  if (error) return fout(error);
+  render();
 };
 
 app.adminVerwijderClub = async (id) => {
@@ -1962,12 +1996,136 @@ app.zoekActie = async (id, code, actie) => {
 
 
 
+
+
+/* ============================================================
+   TOERNOOIKALENDER — Sjotter-toernooien + externe toernooien
+   ============================================================ */
+async function vKalender(){
+  root().innerHTML = topbar() + `
+  <section class="hero" style="padding:40px 20px 46px"><div class="hero-in">
+    <h1 style="font-size:clamp(26px,5vw,40px)">Toernooikalender</h1>
+    <p style="margin-bottom:0">Alle jeugdtoernooien op een rij — meld je ploeg aan of voeg je eigen toernooi toe.</p>
+  </div></section>
+  <div class="wrap">
+    <div id="kal-lijst"><div class="leeg">Laden…</div></div>
+    <div class="kaart" style="max-width:640px">
+      <h3>Staat jouw toernooi er niet tussen?</h3>
+      <p class="sub">Voeg het gratis toe — na een korte controle verschijnt het in de kalender. Organiseer je met ${CONFIG.PLATFORM}? Dan staat je toernooi er automatisch op.</p>
+      <div class="rij">
+        <div><label>Naam toernooi *</label><input id="k-naam"></div>
+        <div><label>Organiserende club *</label><input id="k-club"></div>
+      </div>
+      <div class="rij">
+        <div><label>Datum *</label><input id="k-datum" type="date"></div>
+        <div><label>Gemeente *</label><input id="k-gemeente"></div>
+        <div><label>Provincie</label><select id="k-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+      </div>
+      <div class="rij">
+        <div><label>Categorieën (bv. U8, U10, U12)</label><input id="k-cats"></div>
+        <div><label>Link (website / inschrijving)</label><input id="k-link"></div>
+      </div>
+      <div id="k-melding"></div>
+      <button class="btn btn-p" style="margin-top:16px" onclick="app.kalenderToevoegen()">Toernooi toevoegen</button>
+    </div>
+  </div>` + voet();
+
+  const vandaag = new Date().toISOString().slice(0,10);
+  const [sj, ext] = await Promise.all([
+    sb.from('toernooien').select('naam, slug, datum, locatie').eq('status', 'gepubliceerd'),
+    sb.from('kalender').select('*').eq('status', 'goedgekeurd'),
+  ]);
+  const items = [];
+  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, plaats: t.locatie, cats: null, link: '#/p/' + t.slug, sjotter: true }); });
+  (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, plaats: [k.club, k.gemeente].filter(Boolean).join(' · '), cats: k.categorieen, link: k.link, sjotter: false }); });
+  items.sort((a,b) => a.datum.localeCompare(b.datum));
+
+  $('#kal-lijst').innerHTML = items.length ? items.map(i => `
+    <div class="kaart" style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:16px;align-items:center;min-width:240px">
+        <div class="cat-bal" style="background:linear-gradient(155deg,var(--groen-d),#1A6438);border-radius:12px;width:auto;min-width:58px;padding:0 8px;flex-direction:column;font-size:13px;line-height:1.15">
+          <span style="font-size:19px">${+i.datum.slice(8,10)}</span>${['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][+i.datum.slice(5,7)-1]}
+        </div>
+        <div>
+          <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h(i.naam)} ${i.sjotter ? '<span class="badge b-live">op ' + CONFIG.PLATFORM + '</span>' : ''}</h3>
+          <p class="sub">${h(i.plaats||'')}${i.cats ? ' · ' + h(i.cats) : ''}</p>
+        </div>
+      </div>
+      ${i.link ? (i.sjotter
+        ? `<a class="btn btn-p btn-sm" href="${h(i.link)}">Bekijk & schrijf in</a>`
+        : `<a class="btn btn-o btn-sm" href="${h(/^https?:\/\//.test(i.link) ? i.link : 'https://' + i.link)}" target="_blank" rel="noopener">Website ↗</a>`) : ''}
+    </div>`).join('') : '<div class="kaart"><div class="leeg">Nog geen aankomende toernooien in de kalender — voeg het eerste toe!</div></div>';
+}
+
+app.kalenderToevoegen = async () => {
+  const v = id => $('#' + id).value.trim();
+  if (!v('k-naam') || !v('k-club') || !v('k-datum') || !v('k-gemeente')) return toast('Vul de verplichte velden in (*)');
+  const { error } = await sb.from('kalender').insert({
+    naam: v('k-naam'), club: v('k-club'), datum: v('k-datum'), gemeente: v('k-gemeente'),
+    provincie: $('#k-prov').value, categorieen: v('k-cats') || null, link: v('k-link') || null,
+  });
+  if (error) return fout(error);
+  $('#k-melding').innerHTML = '<div class="melding m-ok">✓ Bedankt! Je toernooi wordt kort nagekeken en verschijnt daarna in de kalender.</div>';
+  toast('Toernooi ingediend ✓');
+};
+
+/* ============================================================
+   WACHTWOORD VERGETEN / RESETTEN
+   ============================================================ */
+function vWachtwoordVergeten(){
+  root().innerHTML = topbar() + `<div class="wrap wrap-smal">
+    <div class="kaart">
+      <h3>Wachtwoord vergeten</h3>
+      <p class="sub">Vul je e-mailadres in en we sturen je een herstellink.</p>
+      <label>E-mailadres</label><input id="f-email" type="email" autocomplete="email">
+      <div id="auth-melding"></div>
+      <div style="margin-top:18px;display:flex;gap:10px;align-items:center">
+        <button class="btn btn-p" onclick="app.wachtwoordReset()">Verstuur herstellink</button>
+        <a href="#/login" style="font-size:13.5px">Terug naar aanmelden</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+app.wachtwoordReset = async () => {
+  const email = $('#f-email').value.trim();
+  if (!email) return toast('Vul je e-mailadres in');
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: location.origin + location.pathname
+  });
+  if (error) return fout(error);
+  $('#auth-melding').innerHTML = `<div class="melding m-ok">✓ Als er een account bestaat voor <strong>${h(email)}</strong>, ontvang je binnen enkele minuten een e-mail met een herstellink.</div>`;
+};
+
+function vNieuwWachtwoord(){
+  root().innerHTML = topbar() + `<div class="wrap wrap-smal">
+    <div class="kaart">
+      <h3>Nieuw wachtwoord instellen</h3>
+      <label>Nieuw wachtwoord (min. 6 tekens)</label><input id="f-ww" type="password" autocomplete="new-password">
+      <label>Herhaal nieuw wachtwoord</label><input id="f-ww2" type="password" autocomplete="new-password">
+      <div id="auth-melding"></div>
+      <button class="btn btn-p" style="margin-top:18px" onclick="app.nieuwWachtwoord()">Wachtwoord opslaan</button>
+    </div>
+  </div>`;
+}
+
+app.nieuwWachtwoord = async () => {
+  const ww = $('#f-ww').value;
+  if (ww.length < 6) return toast('Wachtwoord moet minstens 6 tekens zijn');
+  if (ww !== $('#f-ww2').value) return toast('De wachtwoorden komen niet overeen');
+  const { data, error } = await sb.auth.updateUser({ password: ww });
+  if (error) return fout(error);
+  sessie = (await sb.auth.getSession()).data.session;
+  toast('Wachtwoord aangepast ✓');
+  location.hash = '#/dashboard';
+};
+
 /* ============================================================
    PRIVACY & FOOTER
    ============================================================ */
 function voet(){
   return `<footer style="text-align:center;padding:26px 20px;font-size:13px;color:var(--grijs)">
-    © ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/help">Help & contact</a> · <a href="#/privacy">Privacyverklaring</a>
+    © ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/toernooien">Toernooikalender</a> · <a href="#/help">Help & contact</a> · <a href="#/privacy">Privacyverklaring</a>
   </footer>`;
 }
 
