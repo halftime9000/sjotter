@@ -169,6 +169,12 @@ td.num,th.num{text-align:center;width:42px}
 .paneel-w li::before{color:#9BBCF5}
 .paneel .btn{align-self:flex-start;font-size:15.5px;padding:13px 26px}
 @media(max-width:860px){.split{grid-template-columns:1fr;min-height:auto}.paneel{padding:52px 24px}}
+@media print{
+  .topbar,.tabs,.btn,select,.stat-rij,#toast,footer,details,.melding{display:none !important}
+  body{background:#fff}
+  .kaart{border:none;box-shadow:none;padding:0}
+  .wrap{padding:0;max-width:none}
+}
 @media(max-width:640px){
   .w-tabel tr:first-child{display:none}
   .w-tabel,.w-tabel tr,.w-tabel td{display:block;border:none}
@@ -250,11 +256,21 @@ window.addEventListener('hashchange', render);
 async function boot(){
   const { data } = await sb.auth.getSession();
   sessie = data.session;
+  // "aangemeld blijven" niet aangevinkt -> sessie vervalt bij sluiten van de browser
+  if (sessie && localStorage.getItem('aftrap_tijdelijk') === '1' && !sessionStorage.getItem('aftrap_actief')) {
+    await sb.auth.signOut();
+    sessie = null;
+    localStorage.removeItem('aftrap_tijdelijk');
+  }
   sb.auth.onAuthStateChange((_e, s) => { sessie = s; });
   render();
 }
 
 async function render(){
+  if (location.hash.includes('access_token=')) {
+    setTimeout(() => { location.hash = '#/dashboard'; }, 400);
+    return;
+  }
   if (window._tvRot) { clearInterval(window._tvRot); window._tvRot = null; }
   if (window._tvRef) { clearInterval(window._tvRef); window._tvRef = null; }
   const hash = location.hash.replace(/^#\/?/, '');
@@ -265,7 +281,7 @@ async function render(){
     if (p[0] === 'registreren') return vAuth('registreren');
     if (p[0] === 'dashboard') return vDashboard();
     if (p[0] === 't' && p[1]) return vBeheer(p[1], p[2] || 'instellingen');
-    if (p[0] === 'p' && p[1]) return vPubliek(p[1], p[2] || 'info');
+    if (p[0] === 'p' && p[1]) return vPubliek(p[1], p[2] || 'info', p[3]);
     if (p[0] === 'privacy') return vPrivacy();
     if (p[0] === 'help') return vHelp();
     if (p[0] === 'admin') return vAdmin();
@@ -342,6 +358,8 @@ function vAuth(modus){
       ${reg ? `<label>Clubnaam</label><input id="f-club">` : ''}
       <label>E-mailadres</label><input id="f-email" type="email" autocomplete="email">
       <label>Wachtwoord</label><input id="f-ww" type="password" autocomplete="${reg?'new-password':'current-password'}">
+      ${reg ? `<label>Herhaal wachtwoord</label><input id="f-ww2" type="password" autocomplete="new-password">` : `
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin-top:14px"><input type="checkbox" id="f-onthoud" checked style="width:auto"> Aangemeld blijven</label>`}
       <div id="auth-melding"></div>
       <div style="margin-top:18px;display:flex;gap:10px;align-items:center">
         <button class="btn btn-p" onclick="app.${reg?'registreer':'login'}()">${reg ? 'Account aanmaken' : 'Aanmelden'}</button>
@@ -356,6 +374,7 @@ window.app = {};
 app.registreer = async () => {
   const club = $('#f-club').value.trim(), email = $('#f-email').value.trim(), ww = $('#f-ww').value;
   if (!club || !email || ww.length < 6) return toast('Vul alles in (wachtwoord min. 6 tekens)');
+  if (ww !== $('#f-ww2').value) return toast('De wachtwoorden komen niet overeen');
   const { data, error } = await sb.auth.signUp({ email, password: ww });
   if (error) return fout(error);
   if (!data.session) {
@@ -373,6 +392,12 @@ app.login = async () => {
   const { data, error } = await sb.auth.signInWithPassword({ email, password: ww });
   if (error) return fout(error);
   sessie = data.session;
+  if ($('#f-onthoud') && !$('#f-onthoud').checked) {
+    localStorage.setItem('aftrap_tijdelijk', '1');
+    sessionStorage.setItem('aftrap_actief', '1');
+  } else {
+    localStorage.removeItem('aftrap_tijdelijk');
+  }
   // clubs-rij aanmaken indien nog niet (bv. na e-mailbevestiging)
   const { data: c } = await sb.from('clubs').select('id').eq('id', data.user.id).maybeSingle();
   if (!c) await sb.from('clubs').insert({ id: data.user.id, club_naam: localStorage.getItem('td_clubnaam') || email.split('@')[0], email });
@@ -519,6 +544,14 @@ function tabInstellingen(el, d){
       <div><label>Pauze tussen wedstrijden (min)</label><input id="i-pauze" type="number" min="0" max="30" value="${t.pauze}"></div>
       <div><label>Starttijd</label><input id="i-start" type="time" value="${t.starttijd}"></div>
     </div>
+    <div class="rij">
+      <div><label>Middagpauze vanaf (optioneel)</label><input id="i-pstart" type="time" value="${t.pauze_start||''}"></div>
+      <div><label>Duur middagpauze (min)</label><input id="i-pduur" type="number" min="5" max="120" value="${t.pauze_duur||''}"></div>
+      <div><label>Rangschikking bij gelijke punten</label><select id="i-rang">
+        <option value="saldo" ${t.rangschikking!=='onderling'?'selected':''}>Doelsaldo → gescoorde doelpunten</option>
+        <option value="onderling" ${t.rangschikking==='onderling'?'selected':''}>Onderling resultaat → doelsaldo</option>
+      </select></div>
+    </div>
   </div>
   <div class="kaart">
     <h3>Inschrijvingen</h3>
@@ -543,6 +576,9 @@ app.bewaarInstellingen = async (id) => {
     pauze: +$('#i-pauze').value || 0, starttijd: $('#i-start').value || '09:00',
     inschrijving_open: $('#i-open').value === 'true', deadline: $('#i-deadline').value || null,
     kleur: $('#i-kleur').value || null,
+    pauze_start: $('#i-pstart').value || null,
+    pauze_duur: +$('#i-pduur').value || null,
+    rangschikking: $('#i-rang').value,
   };
   const { error } = await sb.from('toernooien').update(upd).eq('id', id);
   if (error) return fout(error);
@@ -609,10 +645,11 @@ async function tabTeams(el, d){
     const ts = d.teams.filter(x => x.categorie_id === c.id);
     return `<div class="kaart">
       <h3>${h(c.naam)} <span class="sub" style="font-weight:400">(${ts.length}/${c.max_teams} ploegen)</span></h3>
-      ${ts.length ? `<table style="margin-top:10px"><tr><th>Ploeg</th><th>Contact</th><th>Poule</th><th></th></tr>
+      ${ts.length ? `<table style="margin-top:10px"><tr><th>Ploeg</th><th>Stamnr</th><th>Contact</th><th>Poule</th><th></th></tr>
         ${ts.map(t => { const ct = cMap[t.id];
           return `<tr>
             <td><strong>${teamHtml(t)}</strong></td>
+            <td style="font-size:13px;color:var(--grijs)">${h(t.stamnummer||'—')}</td>
             <td style="font-size:13px;color:var(--grijs)">${ct ? h(ct.naam||'') + (ct.email? ' · '+h(ct.email):'') + (ct.telefoon? ' · '+h(ct.telefoon):'') : '—'}</td>
             <td>${t.poule ? '<span class="badge b-live">Poule '+h(t.poule)+'</span>' : '<span class="sub">—</span>'}</td>
             <td style="text-align:right"><button class="btn btn-r btn-sm" onclick="app.verwijderTeam('${t.id}')">✕</button></td>
@@ -621,6 +658,7 @@ async function tabTeams(el, d){
       <hr class="krijt">
       <div class="rij">
         <div><label>Clubnaam</label><input id="t-club-${c.id}"></div>
+        <div><label>Stamnummer</label><input id="t-stam-${c.id}"></div>
         <div><label>Ploegnaam (optioneel)</label><input id="t-naam-${c.id}"></div>
         <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.nieuwTeam('${d.t.id}','${c.id}')" style="width:100%">+ Ploeg toevoegen</button></div>
       </div>
@@ -631,7 +669,7 @@ async function tabTeams(el, d){
 app.nieuwTeam = async (tid, cid) => {
   const club = $(`#t-club-${cid}`).value.trim();
   if (!club) return toast('Geef een clubnaam');
-  const { error } = await sb.from('teams').insert({ toernooi_id: tid, categorie_id: cid, club_naam: club, team_naam: $(`#t-naam-${cid}`).value.trim() || null });
+  const { error } = await sb.from('teams').insert({ toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: $(`#t-stam-${cid}`).value.trim() || null, team_naam: $(`#t-naam-${cid}`).value.trim() || null });
   if (error) return fout(error);
   toast('Ploeg toegevoegd'); render();
 };
@@ -756,14 +794,20 @@ function bouwSchema(d){
     slots.push(slot);
     vorige = bezet;
   }
-  // omzetten naar rijen
+  // omzetten naar rijen (met optionele middagpauze)
   const slotDuur = t.wedstrijdduur + t.pauze;
   const rijen = [];
-  slots.forEach((slot, si) => slot.forEach((m, vi) => rijen.push({
-    toernooi_id: t.id, categorie_id: m.cat, fase: 'poule', poule: m.poule,
-    team_a: m.a, team_b: m.b, veld: vi + 1,
-    starttijd: tijdPlus(t.starttijd, si * slotDuur), volgorde: si * 100 + vi
-  })));
+  let cursor = t.starttijd;
+  let pauzeGedaan = !(t.pauze_start && t.pauze_duur);
+  slots.forEach((slot, si) => {
+    if (!pauzeGedaan && cursor >= t.pauze_start) { cursor = tijdPlus(cursor, t.pauze_duur); pauzeGedaan = true; }
+    slot.forEach((m, vi) => rijen.push({
+      toernooi_id: t.id, categorie_id: m.cat, fase: 'poule', poule: m.poule,
+      team_a: m.a, team_b: m.b, veld: vi + 1,
+      starttijd: cursor, volgorde: si * 100 + vi
+    }));
+    cursor = tijdPlus(cursor, slotDuur);
+  });
   return rijen;
 }
 
@@ -790,13 +834,15 @@ function tabSchema(el, d){
           <option value="kruis">Kruisfinales (1A–2B / 1B–2A → finale)</option>
         </select>
         <button class="btn btn-o btn-sm" onclick="app.genereerFinales()">🏆 Genereer finales</button>
+        ${d.wed.length ? `<button class="btn btn-o btn-sm" onclick="app.exportCsv()">⬇ Excel (CSV)</button>
+        <button class="btn btn-o btn-sm" onclick="window.print()">🖨 Print</button>` : ''}
         ${d.wed.length ? `<button class="btn btn-r btn-sm" onclick="app.wisSchema('${t.id}')">Wis schema</button>` : ''}
       </div>
     </div>
     ${zonderPoule ? `<div class="melding m-fout">${zonderPoule} ploeg(en) zitten nog niet in een poule — voer eerst de loting uit.</div>` : ''}
     ${!d.wed.length ? '<div class="leeg">Nog geen schema. Stel velden & tijden in bij Instellingen, doe de loting en genereer.</div>' : `
     <table class="w-tabel" style="margin-top:14px"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th>Scheids</th><th style="text-align:center">Uitslag</th><th></th></tr>
-      ${tijden.map(tijd => perTijd[tijd].sort((a,b)=>a.veld-b.veld).map(w => `<tr>
+      ${tijden.map((tijd, ti) => (t.pauze_start && t.pauze_duur && ti > 0 && tijden[ti-1] < t.pauze_start && tijd >= t.pauze_start ? `<tr><td colspan="8" style="background:var(--papier);text-align:center;font-weight:700;color:var(--grijs);padding:10px">☕ Pauze — ${t.pauze_duur} minuten</td></tr>` : '') + perTijd[tijd].sort((a,b)=>a.veld-b.veld).map(w => `<tr>
         <td class="c-tijd"><span class="tijd">${w.starttijd}</span></td>
         <td class="c-veld"><span class="veldtag">Veld ${w.veld||'—'}</span></td>
         <td class="c-cat">${h(catMap[w.categorie_id]?.naam||'')}</td>
@@ -843,6 +889,31 @@ app.manueleWedstrijd = async () => {
   toast('Wedstrijd toegevoegd ✓'); render();
 };
 
+app.exportCsv = () => {
+  const d = $('#tab-inhoud')._d;
+  const teamMap = Object.fromEntries(d.teams.map(x => [x.id, x]));
+  const catMap = Object.fromEntries(d.cats.map(x => [x.id, x]));
+  const srMap = Object.fromEntries(d.scheids.map(x => [x.id, x]));
+  const esc = v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const rijen = [['Tijd','Veld','Categorie','Fase','Team A','Team B','Stamnr A','Stamnr B','Scheidsrechter','Score A','Score B']];
+  [...d.wed].sort((a,b) => (a.starttijd||'').localeCompare(b.starttijd||'') || (a.veld||0)-(b.veld||0)).forEach(w => {
+    const ta = teamMap[w.team_a], tb = teamMap[w.team_b];
+    rijen.push([w.starttijd||'', w.veld||'', catMap[w.categorie_id]?.naam||'',
+      w.fase==='finale' ? (w.label||'Finale') : 'Poule ' + (w.poule||''),
+      ta ? ta.club_naam + (ta.team_naam?' '+ta.team_naam:'') : '', tb ? tb.club_naam + (tb.team_naam?' '+tb.team_naam:'') : '',
+      ta?.stamnummer||'', tb?.stamnummer||'',
+      srMap[w.scheidsrechter_id]?.naam||'', w.score_a ?? '', w.score_b ?? '']);
+  });
+  const csv = rijen.map(r => r.map(esc).join(';')).join('\r\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (d.t.slug || 'schema') + '-speelschema.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Speelschema gedownload ⬇');
+};
+
 app.verwijderWedstrijd = async (id) => {
   if (!confirm('Deze wedstrijd verwijderen?')) return;
   const { error } = await sb.from('wedstrijden').delete().eq('id', id);
@@ -871,7 +942,7 @@ app.wisSchema = async (tid) => {
 /* ============================================================
    STANDEN & FINALES
    ============================================================ */
-function berekenStand(teams, wedstrijden){
+function berekenStand(teams, wedstrijden, modus = 'saldo'){
   const rij = Object.fromEntries(teams.map(t => [t.id, { team: t, g:0, w:0, gel:0, v:0, dv:0, dt:0, ptn:0 }]));
   for (const m of wedstrijden) {
     if (m.score_a == null || m.score_b == null) continue;
@@ -882,8 +953,36 @@ function berekenStand(teams, wedstrijden){
     else if (m.score_a < m.score_b) { B.w++; A.v++; B.ptn += 3; }
     else { A.gel++; B.gel++; A.ptn++; B.ptn++; }
   }
-  return Object.values(rij).sort((a,b) => b.ptn - a.ptn || (b.dv-b.dt) - (a.dv-a.dt) || b.dv - a.dv || a.team.club_naam.localeCompare(b.team.club_naam));
+  const arr = Object.values(rij);
+  const saldoCmp = (a,b) => b.ptn - a.ptn || (b.dv-b.dt) - (a.dv-a.dt) || b.dv - a.dv || a.team.club_naam.localeCompare(b.team.club_naam);
+  if (modus !== 'onderling') return arr.sort(saldoCmp);
+  // onderling resultaat: bij gelijke punten beslist het onderlinge duel
+  arr.sort((a,b) => b.ptn - a.ptn);
+  const res = [];
+  let i = 0;
+  while (i < arr.length) {
+    let j = i; while (j < arr.length && arr[j].ptn === arr[i].ptn) j++;
+    const groep = arr.slice(i, j);
+    if (groep.length > 1) {
+      const ids = new Set(groep.map(r => r.team.id));
+      const mini = Object.fromEntries(groep.map(r => [r.team.id, { ptn:0, dv:0, dt:0 }]));
+      for (const m of wedstrijden) {
+        if (m.score_a == null || !ids.has(m.team_a) || !ids.has(m.team_b)) continue;
+        const A = mini[m.team_a], B = mini[m.team_b];
+        A.dv += m.score_a; A.dt += m.score_b; B.dv += m.score_b; B.dt += m.score_a;
+        if (m.score_a > m.score_b) A.ptn += 3; else if (m.score_a < m.score_b) B.ptn += 3; else { A.ptn++; B.ptn++; }
+      }
+      groep.sort((a,b) => {
+        const ma = mini[a.team.id], mb = mini[b.team.id];
+        return mb.ptn - ma.ptn || (mb.dv - mb.dt) - (ma.dv - ma.dt) || saldoCmp(a,b);
+      });
+    }
+    res.push(...groep);
+    i = j;
+  }
+  return res;
 }
+
 
 app.genereerFinales = async () => {
   const d = $('#tab-inhoud')._d;
@@ -902,8 +1001,8 @@ app.genereerFinales = async () => {
     if (catW.some(w => w.score_a == null)) { meldingen.push(`${c.naam}: poulefase nog niet volledig`); continue; }
     const letters = [...new Set(d.teams.filter(x => x.categorie_id === c.id && x.poule).map(x => x.poule))].sort();
     if (letters.length !== 2) { if (letters.length > 2) meldingen.push(`${c.naam}: ${letters.length} poules — gebruik "wedstrijd manueel toevoegen"`); continue; }
-    const standA = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[0]), catW.filter(w=>w.poule===letters[0]));
-    const standB = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[1]), catW.filter(w=>w.poule===letters[1]));
+    const standA = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[0]), catW.filter(w=>w.poule===letters[0]), t.rangschikking);
+    const standB = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[1]), catW.filter(w=>w.poule===letters[1]), t.rangschikking);
     const finales = d.wed.filter(w => w.categorie_id === c.id && w.fase === 'finale');
     const hfs = finales.filter(w => (w.label||'').startsWith('Halve finale')).sort((a,b)=>(a.label||'').localeCompare(b.label||''));
     const n = Math.min(standA.length, standB.length);
@@ -972,7 +1071,7 @@ function tabUitslagen(el, d){
       </tr>`).join('')}
       </table>
       ${letters.length ? `<hr class="krijt"><div class="poule-grid">${letters.map(L => standTabel(L,
-        berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===L), ws.filter(w=>w.fase==='poule'&&w.poule===L)))).join('')}</div>` : ''}
+        berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===L), ws.filter(w=>w.fase==='poule'&&w.poule===L), d.t.rangschikking))).join('')}</div>` : ''}
     </div>`;
   }).join('') || '<div class="kaart"><div class="leeg">Genereer eerst een schema.</div></div>';
 }
@@ -1057,7 +1156,7 @@ app.depubliceer = async (id) => {
 /* ============================================================
    PUBLIEKE PAGINA
    ============================================================ */
-async function vPubliek(slug, tab){
+async function vPubliek(slug, tab, extra){
   root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
   const { data: t, error } = await sb.from('toernooien').select('*').eq('slug', slug).maybeSingle();
   if (error) return fout(error);
@@ -1082,7 +1181,7 @@ async function vPubliek(slug, tab){
   </div></section>
   <div class="wrap">
     <div class="tabs" style="margin-top:0">
-      ${[['info','Info'],['inschrijven','Inschrijven'],['programma','Programma'],['standen','Standen']]
+      ${[['info','Info'],['deelnemers','Deelnemers'],['inschrijven','Inschrijven'],['programma','Programma'],['standen','Standen']]
         .map(([k,l]) => `<a href="${P(k)}" class="${tab===k?'act':''}">${l}${k==='inschrijven'&&open?' 🟢':''}</a>`).join('')}
     </div>
     <div id="pub-inhoud"></div>
@@ -1093,6 +1192,8 @@ async function vPubliek(slug, tab){
   </div>` + voet();
 
   const el = $('#pub-inhoud');
+  if (tab === 'team' && extra) return pubTeam(el, d, extra);
+  if (tab === 'deelnemers') pubDeelnemers(el, d);
   if (tab === 'info') pubInfo(el, d, open);
   if (tab === 'inschrijven') pubInschrijven(el, d, open);
   if (tab === 'programma') pubProgramma(el, d);
@@ -1132,7 +1233,8 @@ function pubInschrijven(el, d, open){
       return `<option value="${c.id}" ${vol?'disabled':''}>${h(c.naam)} (${n}/${c.max_teams}${vol?' — VOL':''})</option>`;
     }).join('')}</select>
     <div class="rij">
-      <div><label>Clubnaam</label><input id="p-club"></div>
+      <div><label>Clubnaam *</label><input id="p-club"></div>
+      <div><label>Stamnummer *</label><input id="p-stam"></div>
       <div><label>Ploegnaam (optioneel)</label><input id="p-team"></div>
     </div>
     <div class="rij">
@@ -1147,9 +1249,9 @@ function pubInschrijven(el, d, open){
 }
 
 app.schrijfIn = async (tid) => {
-  const cid = $('#p-cat').value, club = $('#p-club').value.trim(),
+  const cid = $('#p-cat').value, club = $('#p-club').value.trim(), stam = $('#p-stam').value.trim(),
         naam = $('#p-naam').value.trim(), email = $('#p-email').value.trim(), tel = $('#p-tel').value.trim();
-  if (!cid || !club || !naam || !email || !tel) return toast('Vul alle verplichte velden in (*)');
+  if (!cid || !club || !stam || !naam || !email || !tel) return toast('Vul alle verplichte velden in (*)');
   let logo_url = null;
   const logoFile = $('#p-logo').files[0];
   if (logoFile) {
@@ -1157,12 +1259,12 @@ app.schrijfIn = async (tid) => {
     catch(e){ console.error(e); toast('Logo uploaden mislukt — inschrijving gaat door zonder logo'); }
   }
   const { data: team, error } = await sb.from('teams').insert({
-    toernooi_id: tid, categorie_id: cid, club_naam: club, team_naam: $('#p-team').value.trim() || null, logo_url
+    toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: stam, team_naam: $('#p-team').value.trim() || null, logo_url
   }).select().single();
   if (error) return fout(error);
   await sb.from('team_contacten').insert({ team_id: team.id, naam, email, telefoon: tel });
   $('#p-melding').innerHTML = `<div class="melding m-ok">✓ <strong>${h(club)}</strong> is ingeschreven! De organisator heeft je gegevens ontvangen.</div>`;
-  ['#p-club','#p-team','#p-naam','#p-email','#p-tel'].forEach(s => $(s).value = '');
+  ['#p-club','#p-stam','#p-team','#p-naam','#p-email','#p-tel'].forEach(s => $(s).value = '');
   toast('Inschrijving gelukt ⚽');
 };
 
@@ -1176,12 +1278,12 @@ function pubProgramma(el, d){
   const tijden = Object.keys(perTijd).sort();
   el.innerHTML = `<div class="kaart">
     <table class="w-tabel"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th style="text-align:center">Uitslag</th></tr>
-    ${tijden.map(tijd => perTijd[tijd].sort((a,b)=>(a.veld||0)-(b.veld||0)).map(w => `<tr>
+    ${tijden.map((tijd, ti) => (d.t.pauze_start && d.t.pauze_duur && ti > 0 && tijden[ti-1] < d.t.pauze_start && tijd >= d.t.pauze_start ? `<tr><td colspan="6" style="background:var(--papier);text-align:center;font-weight:700;color:var(--grijs);padding:10px">☕ Pauze — ${d.t.pauze_duur} minuten</td></tr>` : '') + perTijd[tijd].sort((a,b)=>(a.veld||0)-(b.veld||0)).map(w => `<tr>
       <td class="c-tijd"><span class="tijd">${w.starttijd||'—'}</span></td>
       <td class="c-veld"><span class="veldtag">Veld ${w.veld||'—'}</span></td>
       <td class="c-cat">${h(catMap[w.categorie_id]?.naam||'')}</td>
       <td class="c-fase"><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : 'Poule '+h(w.poule||'')}</span></td>
-      <td class="c-wed">${teamHtml(teamMap[w.team_a])} — ${teamHtml(teamMap[w.team_b])}${w.scheidsrechter_id && srMap[w.scheidsrechter_id] ? ` <span class="sub" style="font-size:12px">· scheids: ${h(srMap[w.scheidsrechter_id].naam)}</span>` : ''}</td>
+      <td class="c-wed"><a href="#/p/${d.t.slug}/team/${w.team_a}" style="color:inherit">${teamHtml(teamMap[w.team_a])}</a> — <a href="#/p/${d.t.slug}/team/${w.team_b}" style="color:inherit">${teamHtml(teamMap[w.team_b])}</a>${w.scheidsrechter_id && srMap[w.scheidsrechter_id] ? ` <span class="sub" style="font-size:12px">· scheids: ${h(srMap[w.scheidsrechter_id].naam)}</span>` : ''}</td>
       <td class="score c-score" style="text-align:center">${w.score_a==null?'· - ·':'<strong>'+w.score_a+' - '+w.score_b+'</strong>'}</td>
     </tr>`).join('')).join('')}
     </table>
@@ -1195,10 +1297,62 @@ function pubStanden(el, d){
     const ws = d.wed.filter(w => w.categorie_id === c.id && w.fase === 'poule');
     return `<div class="kaart"><h3>${h(c.naam)}</h3>
       <div class="poule-grid" style="margin-top:12px">
-      ${letters.map(L => standTabel(L, berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===L), ws.filter(w=>w.poule===L)))).join('')}
+      ${letters.map(L => standTabel(L, berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===L), ws.filter(w=>w.poule===L), d.t.rangschikking))).join('')}
       </div></div>`;
   }).join('');
   el.innerHTML = blokken || `<div class="kaart"><div class="leeg">Standen verschijnen hier zodra de poules geloot zijn.</div></div>`;
+}
+
+
+function pubDeelnemers(el, d){
+  el.innerHTML = d.cats.map(c => {
+    const ts = d.teams.filter(x => x.categorie_id === c.id);
+    return `<div class="kaart">
+      <h3>${h(c.naam)} <span class="sub" style="font-weight:400">(${ts.length} ploegen)</span></h3>
+      ${ts.length ? `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        ${ts.map(t => `<a href="#/p/${d.t.slug}/team/${t.id}" style="display:inline-flex;align-items:center;gap:4px;background:var(--papier);border:1px solid var(--lijn);border-radius:99px;padding:8px 16px;font-weight:600;font-size:14px;color:var(--inkt)">${teamHtml(t)}</a>`).join('')}
+      </div>` : '<div class="leeg">Nog geen inschrijvingen in deze categorie.</div>'}
+    </div>`;
+  }).join('') || '<div class="kaart"><div class="leeg">Nog geen categorieën.</div></div>';
+}
+
+function pubTeam(el, d, teamId){
+  const team = d.teams.find(x => x.id === teamId);
+  if (!team) return el.innerHTML = '<div class="kaart"><div class="leeg">Ploeg niet gevonden.</div></div>';
+  const cat = d.cats.find(c => c.id === team.categorie_id);
+  const teamMap = Object.fromEntries(d.teams.map(x => [x.id, x]));
+  const ws = d.wed.filter(w => w.team_a === teamId || w.team_b === teamId).sort((a,b) => (a.starttijd||'').localeCompare(b.starttijd||''));
+  let standHtml = '';
+  if (team.poule) {
+    const stand = berekenStand(
+      d.teams.filter(x => x.categorie_id === team.categorie_id && x.poule === team.poule),
+      d.wed.filter(w => w.categorie_id === team.categorie_id && w.fase === 'poule' && w.poule === team.poule),
+      d.t.rangschikking);
+    const pos = stand.findIndex(r => r.team.id === teamId) + 1;
+    standHtml = `<p class="sub" style="margin-top:6px">Poule ${h(team.poule)}${pos ? ` · momenteel <strong>${pos}e</strong> van ${stand.length}` : ''}</p>`;
+  }
+  el.innerHTML = `
+  <a href="#/p/${d.t.slug}/deelnemers" style="font-size:13.5px">← Alle deelnemers</a>
+  <div class="kaart" style="margin-top:10px">
+    <div style="display:flex;gap:16px;align-items:center">
+      ${team.logo_url ? `<img src="${h(team.logo_url)}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:1px solid var(--lijn);background:#fff">` : ''}
+      <div>
+        <h3 style="font-size:20px">${teamNaam(team)}</h3>
+        <p class="sub">${h(cat?.naam||'')}${team.stamnummer ? ' · stamnr. ' + h(team.stamnummer) : ''}</p>
+        ${standHtml}
+      </div>
+    </div>
+    <hr class="krijt">
+    ${ws.length ? `<table class="w-tabel"><tr><th>Tijd</th><th>Veld</th><th></th><th>Wedstrijd</th><th style="text-align:center">Uitslag</th></tr>
+      ${ws.map(w => `<tr>
+        <td class="c-tijd"><span class="tijd">${w.starttijd||'—'}</span></td>
+        <td class="c-veld"><span class="veldtag">Veld ${w.veld||'—'}</span></td>
+        <td class="c-fase"><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : 'Poule '+h(w.poule||'')}</span></td>
+        <td class="c-wed">${teamHtml(teamMap[w.team_a])} — ${teamHtml(teamMap[w.team_b])}</td>
+        <td class="score c-score" style="text-align:center">${w.score_a==null?'· - ·':'<strong>'+w.score_a+' - '+w.score_b+'</strong>'}</td>
+      </tr>`).join('')}
+    </table>` : '<div class="leeg">Nog geen wedstrijden ingepland voor deze ploeg.</div>'}
+  </div>`;
 }
 
 /* ============================================================
@@ -1352,10 +1506,14 @@ function tvTeken(reset = true){
   let inhoud = '', catNaam = '';
 
   if (sl.type === 'prog') {
-    catNaam = sl.cat.naam + ' — programma';
-    const ws = _tv.wed.filter(w => w.categorie_id === sl.cat.id).sort((a,b) => a.volgorde - b.volgorde);
+    const alleW = _tv.wed.filter(w => w.categorie_id === sl.cat.id);
+    const pouleW = alleW.filter(w => w.fase === 'poule');
+    const finW = alleW.filter(w => w.fase === 'finale');
+    const finaleFase = pouleW.length && pouleW.every(w => w.score_a != null) && finW.length;
+    catNaam = sl.cat.naam + (finaleFase ? ' — finales 🏆' : ' — programma');
+    const ws = (finaleFase ? finW : alleW).sort((a,b) => a.volgorde - b.volgorde);
     const open = ws.filter(w => w.score_a == null);
-    const klaar = ws.filter(w => w.score_a != null).slice(-3);
+    const klaar = ws.filter(w => w.score_a != null).slice(finaleFase ? -6 : -3);
     const tonen = klaar.concat(open.slice(0, 9 - klaar.length));
     inhoud = `<table><tr><th>Tijd</th><th>Veld</th><th></th><th>Wedstrijd</th><th style="text-align:center">Uitslag</th></tr>
       ${tonen.map(w => `<tr>
@@ -1371,7 +1529,7 @@ function tvTeken(reset = true){
     const letters = [...new Set(_tv.teams.filter(x => x.categorie_id === sl.cat.id && x.poule).map(x => x.poule))].sort();
     const ws = _tv.wed.filter(w => w.categorie_id === sl.cat.id && w.fase === 'poule');
     inhoud = `<div class="poule-grid">${letters.map(L => standTabel(L,
-      berekenStand(_tv.teams.filter(x => x.categorie_id === sl.cat.id && x.poule === L), ws.filter(w => w.poule === L)))).join('')}</div>`;
+      berekenStand(_tv.teams.filter(x => x.categorie_id === sl.cat.id && x.poule === L), ws.filter(w => w.poule === L), _tv.t.rangschikking))).join('')}</div>`;
   } else if (sl.type === 'sponsors') {
     catNaam = 'Met dank aan onze sponsors';
     inhoud = `<div style="display:flex;gap:34px;align-items:center;justify-content:center;flex-wrap:wrap;height:100%">
@@ -1414,10 +1572,12 @@ async function tabScheids(el, d){
         <button class="btn btn-p btn-sm" onclick="app.autoScheids()">⚡ Automatisch toewijzen</button>
       </div>` : ''}
     </div>
-    ${d.scheids.length ? `<table style="margin-top:12px"><tr><th>Naam</th><th class="num">Wedstrijden</th><th>Persoonlijke link</th><th></th></tr>
+    ${d.scheids.length ? `<table style="margin-top:12px"><tr><th>Naam</th><th>Beperkingen</th><th class="num">Wedstrijden</th><th>Persoonlijke link</th><th></th></tr>
       ${d.scheids.map(s => { const link = codeMap[s.id] ? basis + codeMap[s.id] : null;
+        const beperkingen = [s.beschikbaar==='vm'?'voormiddag':s.beschikbaar==='nm'?'namiddag':null, s.club?('niet '+s.club):null, s.cat_ids?s.cat_ids.split(',').map(id=>h(d.cats.find(c=>c.id===id)?.naam||'')).join('/'):null].filter(Boolean).join(' · ') || '—';
         return `<tr>
           <td><strong>${h(s.naam)}</strong></td>
+          <td style="font-size:12.5px;color:var(--grijs)">${beperkingen}</td>
           <td class="num">${d.wed.filter(w => w.scheidsrechter_id === s.id).length}</td>
           <td>${link ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input readonly value="${h(link)}" style="max-width:280px;font-size:12.5px;padding:6px 8px" onclick="this.select()"><button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd ✓'))">Kopieer</button></div>` : '—'}</td>
           <td style="text-align:right"><button class="btn btn-r btn-sm" onclick="app.verwijderScheids('${s.id}')">✕</button></td>
@@ -1426,15 +1586,29 @@ async function tabScheids(el, d){
     <hr class="krijt">
     <div class="rij">
       <div><label>Naam</label><input id="sr-naam"></div>
-      <div style="align-self:flex-end"><button class="btn btn-p" onclick="app.nieuweScheids('${d.t.id}')" style="width:100%">+ Toevoegen</button></div>
+      <div><label>Beschikbaar</label><select id="sr-tijd">
+        <option value="dag">Hele dag</option>
+        <option value="vm">Enkel voormiddag</option>
+        <option value="nm">Enkel namiddag</option>
+      </select></div>
+      <div><label>Eigen club (optioneel)</label><input id="sr-club"></div>
     </div>
+    <label>Categorieën (niets aangevinkt = alle)</label>
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      ${d.cats.map(c => `<label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" class="sr-cat" value="${c.id}" style="width:auto"> ${h(c.naam)}</label>`).join('')}
+    </div>
+    <button class="btn btn-p" style="margin-top:16px" onclick="app.nieuweScheids('${d.t.id}')">+ Toevoegen</button>
   </div>`;
 }
 
 app.nieuweScheids = async (tid) => {
   const naam = $('#sr-naam').value.trim();
   if (!naam) return toast('Geef een naam');
-  const { data: s, error } = await sb.from('scheidsrechters').insert({ toernooi_id: tid, naam }).select().single();
+  const cat_ids = [...document.querySelectorAll('.sr-cat:checked')].map(x => x.value).join(',') || null;
+  const { data: s, error } = await sb.from('scheidsrechters').insert({
+    toernooi_id: tid, naam,
+    beschikbaar: $('#sr-tijd').value, club: $('#sr-club').value.trim() || null, cat_ids
+  }).select().single();
   if (error) return fout(error);
   const { error: e2 } = await sb.from('scheids_codes').insert({ scheidsrechter_id: s.id, code: rand(12).toLowerCase() });
   if (e2) return fout(e2);
@@ -1457,24 +1631,35 @@ app.autoScheids = async () => {
   if (modus === 'veld') {
     const velden = [...new Set(d.wed.map(w => w.veld).filter(Boolean))].sort((a,b) => a - b);
     const n = Math.min(velden.length, d.scheids.length);
-    if (!confirm(`Elke scheidsrechter krijgt een vast veld:\n${velden.slice(0, n).map((v, i) => `Veld ${v} → ${d.scheids[i].naam}`).join('\n')}${d.scheids.length < velden.length ? `\n(Velden zonder scheidsrechter blijven leeg)` : ''}\n\nBestaande toewijzingen worden overschreven. Doorgaan?`)) return;
+    if (!confirm(`Elke scheidsrechter krijgt een vast veld:\n${velden.slice(0, n).map((v, i) => `Veld ${v} → ${d.scheids[i].naam}`).join('\n')}${d.scheids.length < velden.length ? `\n(Velden zonder scheidsrechter blijven leeg)` : ''}\n\nLet op: deze modus houdt geen rekening met beperkingen (categorie/dagdeel/club).\n\nBestaande toewijzingen worden overschreven. Doorgaan?`)) return;
     const perVeld = {};
     velden.forEach((v, i) => perVeld[v] = i < d.scheids.length ? d.scheids[i].id : null);
     d.wed.forEach(w => updates.push({ id: w.id, sr: perVeld[w.veld] ?? null }));
   } else {
     if (!confirm(`De ${d.wed.length} wedstrijden worden willekeurig en evenwichtig verdeeld over ${d.scheids.length} scheidsrechter(s). Niemand krijgt twee wedstrijden op hetzelfde tijdstip.\n\nBestaande toewijzingen worden overschreven. Doorgaan?`)) return;
+    const teamMap = Object.fromEntries(d.teams.map(x => [x.id, x]));
+    const grens = d.t.pauze_start || '13:00';
+    const mag = (s, w) => {
+      if (s.cat_ids && !s.cat_ids.split(',').includes(w.categorie_id)) return false;
+      if (s.beschikbaar === 'vm' && w.starttijd && w.starttijd >= grens) return false;
+      if (s.beschikbaar === 'nm' && w.starttijd && w.starttijd < grens) return false;
+      if (s.club && [teamMap[w.team_a], teamMap[w.team_b]].some(x => x && x.club_naam.toLowerCase() === s.club.toLowerCase())) return false;
+      return true;
+    };
     const perSlot = {};
     d.wed.forEach(w => (perSlot[w.starttijd || '?'] ||= []).push(w));
     const telling = Object.fromEntries(d.scheids.map(s => [s.id, 0]));
+    let nietToegewezen = 0;
     for (const tijd of Object.keys(perSlot).sort()) {
       const bezet = new Set();
       for (const w of shuffle(perSlot[tijd])) {
-        const vrij = shuffle(d.scheids.filter(s => !bezet.has(s.id))).sort((a, b) => telling[a.id] - telling[b.id]);
+        const vrij = shuffle(d.scheids.filter(s => !bezet.has(s.id) && mag(s, w))).sort((a, b) => telling[a.id] - telling[b.id]);
         const keuze = vrij[0] || null;
-        if (keuze) { bezet.add(keuze.id); telling[keuze.id]++; }
+        if (keuze) { bezet.add(keuze.id); telling[keuze.id]++; } else nietToegewezen++;
         updates.push({ id: w.id, sr: keuze ? keuze.id : null });
       }
     }
+    if (nietToegewezen) setTimeout(() => toast(`${nietToegewezen} wedstrijd(en) zonder scheidsrechter (beperkingen) — wijs manueel toe`), 2800);
   }
 
   for (const u of updates) {
