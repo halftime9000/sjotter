@@ -267,6 +267,7 @@ async function render(){
     if (p[0] === 't' && p[1]) return vBeheer(p[1], p[2] || 'instellingen');
     if (p[0] === 'p' && p[1]) return vPubliek(p[1], p[2] || 'info');
     if (p[0] === 'privacy') return vPrivacy();
+    if (p[0] === 'help') return vHelp();
     if (p[0] === 'admin') return vAdmin();
     if (p[0] === 's' && p[1]) return vScheids(p[1]);
     if (p[0] === 'tv' && p[1]) return vTv(p[1]);
@@ -1675,8 +1676,38 @@ app.zoekActie = async (id, code, actie) => {
    ============================================================ */
 function voet(){
   return `<footer style="text-align:center;padding:26px 20px;font-size:13px;color:var(--grijs)">
-    © ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/privacy">Privacyverklaring</a> · <a href="mailto:${CONFIG.CONTACT_EMAIL}">Contact</a>
+    © ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/help">Help & contact</a> · <a href="#/privacy">Privacyverklaring</a>
   </footer>`;
+}
+
+function vHelp(){
+  const V = (vraag, antwoord) => `<details style="border-bottom:1px solid var(--lijn);padding:12px 0">
+    <summary style="font-weight:600;cursor:pointer;font-size:15px">${vraag}</summary>
+    <p style="margin-top:8px;font-size:14.5px;line-height:1.65;color:var(--grijs)">${antwoord}</p>
+  </details>`;
+  root().innerHTML = topbar() + `<div class="wrap" style="max-width:720px">
+    <div class="kaart">
+      <h3>Voor organisatoren</h3>
+      ${V('Wat kost een toernooi organiseren?', 'Een toernooi aanmaken, categorie\u00ebn instellen en alles uittesten is volledig gratis. Je betaalt \u20ac ' + CONFIG.PRIJS + ' per toernooi, \u00e9\u00e9nmalig, op het moment dat je publiceert. Geen abonnement, geen verborgen kosten.')}
+      ${V('Hoe werkt de betaling?', 'Bij het tabblad "Publicatie & betaling" vind je ons rekeningnummer en een unieke mededeling. Na overschrijving (of Payconiq) wordt je betaling meestal binnen 1 werkdag verwerkt en kan je publiceren.')}
+      ${V('Hoe schrijven clubs zich in?', 'Na publicatie krijg je een publieke link. Deel die met de clubs \u2014 zij schrijven hun ploegen zelf in per leeftijdscategorie. Vol is vol: het maximum per categorie bewaak je zelf bij de instellingen.')}
+      ${V('Hoe werkt de loting en het speelschema?', 'Met \u00e9\u00e9n klik verdeelt de loting de ploegen over de poules, waarbij ploegen van dezelfde club uit elkaar gehouden worden. Daarna genereert het schema zich automatisch op basis van je velden, wedstrijdduur en pauzes \u2014 zonder dubbele boekingen. Alles blijft nadien manueel bij te sturen.')}
+      ${V('Wat doen de scheidsrechterslinks?', 'Elke scheidsrechter krijgt een persoonlijke link waarop hij enkel zijn eigen wedstrijden ziet en zelf de scores kan ingeven. Die verschijnen meteen op de live standen en het TV-scherm.')}
+      ${V('Wat is het TV-scherm?', 'Een link die je op een groot scherm in de kantine opent: hij toont automatisch roterend het programma, de live standen en je sponsors \u2014 de hele dag, zonder dat je iets moet doen.')}
+    </div>
+    <div class="kaart">
+      <h3>Voor trainers (oefenwedstrijden)</h3>
+      ${V('Wat kost een zoekertje?', 'Niets. Zoekertjes plaatsen en doorzoeken is volledig gratis, en je hebt er geen account voor nodig.')}
+      ${V('Hoe vind ik een tegenstander?', 'Filter op categorie, niveau en provincie. Zie je een match, klik dan op "Toon contact" en neem rechtstreeks contact op met de club.')}
+      ${V('Hoe verwijder ik mijn zoekertje?', 'Bij het plaatsen kreeg je een beheerlink. Daarmee markeer je het zoekertje als "gevonden" of verwijder je het. Link kwijt? Mail ons even.')}
+      ${V('Vergeet de wedstrijd niet aan te vragen', 'Gevonden? Denk eraan om de oefenwedstrijd offici\u00ebel aan te vragen via E-Kickoff, zodat jullie verzekerd zijn.')}
+    </div>
+    <div class="kaart" style="text-align:center">
+      <h3>Nog een vraag?</h3>
+      <p class="sub" style="margin:8px 0 14px">We antwoorden meestal binnen \u00e9\u00e9n werkdag.</p>
+      <a class="btn btn-p" href="mailto:${CONFIG.CONTACT_EMAIL}?subject=Vraag over ${CONFIG.PLATFORM}">Mail ons</a>
+    </div>
+  </div>` + voet();
 }
 
 function vPrivacy(){
