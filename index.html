@@ -204,7 +204,7 @@ const CONFIG = {
   SUPABASE_ANON_KEY: 'sb_publishable_wLF8ZNLFbiWM8YGrEnzjXQ_Aon8llxh',
   SUPER_ADMIN_UID: '95fca7a8-1e59-4158-9414-780704d96fe3',
   PLATFORM: 'Aftrap',
-  PRIJS: 20,
+  PRIJS: 25,
   IBAN: 'BE00 0000 0000 0000',
   BEGUNSTIGDE: 'Aftrap',
   CONTACT_EMAIL: 'aftrap.be@gmail.com',
@@ -1688,7 +1688,7 @@ function vHelp(){
   root().innerHTML = topbar() + `<div class="wrap" style="max-width:720px">
     <div class="kaart">
       <h3>Voor organisatoren</h3>
-      ${V('Wat kost een toernooi organiseren?', 'Een toernooi aanmaken, categorie\u00ebn instellen en alles uittesten is volledig gratis. Je betaalt \u20ac ' + CONFIG.PRIJS + ' per toernooi, \u00e9\u00e9nmalig, op het moment dat je publiceert. Geen abonnement, geen verborgen kosten.')}
+      ${V('Wat kost een toernooi organiseren?', 'Een toernooi aanmaken, categorie\u00ebn instellen en alles uittesten is volledig gratis. Je betaalt \u20ac ' + CONFIG.PRIJS + ' per toernooi, \u00e9\u00e9nmalig, op het moment dat je publiceert \u2014 voor een onbeperkt aantal ploegen en categorie\u00ebn. Geen abonnement, geen verborgen kosten.')}
       ${V('Hoe werkt de betaling?', 'Bij het tabblad "Publicatie & betaling" vind je ons rekeningnummer en een unieke mededeling. Na overschrijving (of Payconiq) wordt je betaling meestal binnen 1 werkdag verwerkt en kan je publiceren.')}
       ${V('Hoe schrijven clubs zich in?', 'Na publicatie krijg je een publieke link. Deel die met de clubs \u2014 zij schrijven hun ploegen zelf in per leeftijdscategorie. Vol is vol: het maximum per categorie bewaak je zelf bij de instellingen.')}
       ${V('Hoe werkt de loting en het speelschema?', 'Met \u00e9\u00e9n klik verdeelt de loting de ploegen over de poules, waarbij ploegen van dezelfde club uit elkaar gehouden worden. Daarna genereert het schema zich automatisch op basis van je velden, wedstrijdduur en pauzes \u2014 zonder dubbele boekingen. Alles blijft nadien manueel bij te sturen.')}
