@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 :root{
   --groen:#14532D; --groen-d:#0D3B20; --gras:#22A05A; --gras-l:#E7F5EC;
@@ -218,9 +219,13 @@ const CONFIG = {
   IBAN: 'BE00 0000 0000 0000',
   BEGUNSTIGDE: 'Sjotter',
   CONTACT_EMAIL: 'sjotter.be@gmail.com',
+  EMAILJS_PUBLIC_KEY: 'D7_aR9T9QSxZaEhgC',
+  EMAILJS_SERVICE: 'service_zzty9kh',
+  EMAILJS_TEMPLATE: 'template_jmj1ncn',
 };
 
 const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+if (window.emailjs && CONFIG.EMAILJS_PUBLIC_KEY !== 'VUL_IN') emailjs.init({ publicKey: CONFIG.EMAILJS_PUBLIC_KEY });
 let sessie = null;
 let mijnClub = null;
 
@@ -1903,14 +1908,52 @@ function tekenZoek(){
             ${z.kunstgras ? '<span class="badge b-geel">Kunstgras</span>' : ''}
           </div>
           <h3>${h(z.club_naam)}</h3>
-          <p class="sub">${h(z.gemeente)} (${h(z.provincie)}) · ${z.thuis_uit === 'beide' ? 'thuis of uit' : 'enkel ' + h(z.thuis_uit)} · ${z.flexibel || !z.datum ? 'datum in overleg' : datumNL(z.datum)}</p>
+          <p style="display:flex;gap:8px 10px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:14px">
+            <strong style="font-size:15px">📍 ${h(z.gemeente)}</strong>
+            <span class="sub">(${h(z.provincie)})</span>
+            <span class="badge" style="background:#EDF2FA;color:#2C4F8C">${z.thuis_uit === 'beide' ? 'thuis of uit' : 'enkel ' + h(z.thuis_uit)}</span>
+            <span class="tijd" style="background:#E8EFFB;color:#2C4F8C;font-size:13.5px">${z.flexibel || !z.datum ? '📅 datum in overleg' : '📅 ' + datumNL(z.datum)}</span>
+          </p>
           ${z.opmerking ? `<p style="font-size:14px;margin-top:8px">${h(z.opmerking)}</p>` : ''}
         </div>
         </div>
-        <div id="z-c-${z.id}" style="text-align:right"><button class="btn btn-o btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button></div>
+        <div id="z-c-${z.id}" style="text-align:right">${z.contact_voorkeur === 'bericht'
+          ? `<button class="btn btn-b btn-sm" onclick="app.toonBerichtForm('${z.id}')">✉ Stuur een bericht</button>`
+          : `<button class="btn btn-o btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button>`}</div>
       </div>
     </div>`).join('') || '<div class="kaart"><div class="leeg">Geen zoekertjes gevonden met deze filters. Plaats zelf het eerste!</div></div>';
 }
+
+app.toonBerichtForm = (id) => {
+  const z = _zoek.find(x => x.id === id);
+  if (!z) return;
+  $('#z-c-' + id).innerHTML = `<div style="text-align:left;min-width:260px;max-width:340px">
+    <label style="margin-top:0">Jouw naam</label><input id="b-naam-${id}">
+    <label>Jouw e-mail</label><input id="b-email-${id}" type="email">
+    <label>Bericht</label><textarea id="b-tekst-${id}" rows="3"></textarea>
+    <button class="btn btn-b btn-sm" style="margin-top:10px" onclick="app.stuurBericht('${id}')">Verstuur</button>
+  </div>`;
+};
+
+app.stuurBericht = async (id) => {
+  const z = _zoek.find(x => x.id === id);
+  if (!z) return;
+  if (CONFIG.EMAILJS_TEMPLATE === 'VUL_IN') return toast('Berichten zijn nog niet geactiveerd');
+  const naam = $(`#b-naam-${id}`).value.trim(), email = $(`#b-email-${id}`).value.trim(), tekst = $(`#b-tekst-${id}`).value.trim();
+  if (!naam || !email || !tekst) return toast('Vul naam, e-mail en bericht in');
+  try {
+    await emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
+      naar_email: z.contact_email,
+      naar_naam: z.contact_naam,
+      zoekertje: `${z.categorie} ${z.niveau} — ${z.club_naam} (${z.gemeente})`,
+      van_naam: naam,
+      van_email: email,
+      bericht: tekst,
+    });
+    $('#z-c-' + id).innerHTML = `<div class="melding m-ok" style="margin:0">✓ Bericht verzonden! ${h(z.contact_naam)} antwoordt je rechtstreeks via e-mail.</div>`;
+    toast('Bericht verzonden ✉');
+  } catch(e) { console.error(e); toast('Verzenden mislukt — probeer later opnieuw'); }
+};
 
 app.toonContact = (id) => {
   const z = _zoek.find(x => x.id === id);
@@ -1952,6 +1995,11 @@ function vZoekPlaatsen(){
         <div><label>E-mail *</label><input id="z-cemail" type="email"></div>
         <div><label>GSM (optioneel)</label><input id="z-ctel"></div>
       </div>
+      <label>Hoe wil je gecontacteerd worden?</label>
+      <div style="display:flex;gap:18px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="radio" name="z-voorkeur" value="open" checked style="width:auto"> Toon mijn gegevens bij het zoekertje</label>
+        <label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="radio" name="z-voorkeur" value="bericht" style="width:auto"> Enkel via ${CONFIG.PLATFORM}-bericht (je e-mail blijft verborgen)</label>
+      </div>
       <div id="z-melding"></div>
       <button class="btn btn-b" style="margin-top:16px" onclick="app.plaatsZoekertje()">Zoekertje plaatsen</button>
     </div>
@@ -1969,6 +2017,7 @@ app.plaatsZoekertje = async () => {
     thuis_uit: $('#z-tu').value, kunstgras: $('#z-gras').checked,
     opmerking: v('z-opm') || null,
     contact_naam: v('z-cnaam'), contact_email: v('z-cemail'), contact_telefoon: v('z-ctel') || null,
+    contact_voorkeur: document.querySelector('input[name="z-voorkeur"]:checked').value,
   }).select().single();
   if (error) return fout(error);
   const code = rand(10);
