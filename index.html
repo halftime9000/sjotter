@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aftrap — jeugdtoernooien organiseren zonder gedoe</title>
-<meta name="description" content="Aftrap — toernooien organiseren en oefenwedstrijden vinden voor jeugdvoetbal. Inschrijvingen, loting, speelschema en live standen.">
+<title>Sjotter — jeugdtoernooien organiseren en oefenwedstrijden vinden</title>
+<meta name="description" content="Sjotter — toernooien organiseren en oefenwedstrijden vinden voor jeugdvoetbal. Inschrijvingen, loting, speelschema en live standen.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -203,17 +203,17 @@ td.num,th.num{text-align:center;width:42px}
 <div id="toast"></div>
 <script>
 /* ============================================================
-   AFTRAP v2
+   SJOTTER
    ============================================================ */
 const CONFIG = {
   SUPABASE_URL: 'https://equmwyvxbjjocwetwfcw.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_wLF8ZNLFbiWM8YGrEnzjXQ_Aon8llxh',
   SUPER_ADMIN_UID: '95fca7a8-1e59-4158-9414-780704d96fe3',
-  PLATFORM: 'Aftrap',
+  PLATFORM: 'Sjotter',
   PRIJS: 25,
   IBAN: 'BE00 0000 0000 0000',
-  BEGUNSTIGDE: 'Aftrap',
-  CONTACT_EMAIL: 'aftrap.be@gmail.com',
+  BEGUNSTIGDE: 'Sjotter',
+  CONTACT_EMAIL: 'sjotter.be@gmail.com',
 };
 
 const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -257,10 +257,10 @@ async function boot(){
   const { data } = await sb.auth.getSession();
   sessie = data.session;
   // "aangemeld blijven" niet aangevinkt -> sessie vervalt bij sluiten van de browser
-  if (sessie && localStorage.getItem('aftrap_tijdelijk') === '1' && !sessionStorage.getItem('aftrap_actief')) {
+  if (sessie && localStorage.getItem('sjotter_tijdelijk') === '1' && !sessionStorage.getItem('sjotter_actief')) {
     await sb.auth.signOut();
     sessie = null;
-    localStorage.removeItem('aftrap_tijdelijk');
+    localStorage.removeItem('sjotter_tijdelijk');
   }
   sb.auth.onAuthStateChange((_e, s) => { sessie = s; });
   render();
@@ -378,7 +378,7 @@ app.registreer = async () => {
   const { data, error } = await sb.auth.signUp({ email, password: ww });
   if (error) return fout(error);
   if (!data.session) {
-    localStorage.setItem('td_clubnaam', club);
+    localStorage.setItem('sj_clubnaam', club);
     $('#auth-melding').innerHTML = `<div class="melding m-info">Check je mailbox en bevestig je e-mailadres. Meld je daarna aan.</div>`;
     return;
   }
@@ -393,14 +393,14 @@ app.login = async () => {
   if (error) return fout(error);
   sessie = data.session;
   if ($('#f-onthoud') && !$('#f-onthoud').checked) {
-    localStorage.setItem('aftrap_tijdelijk', '1');
-    sessionStorage.setItem('aftrap_actief', '1');
+    localStorage.setItem('sjotter_tijdelijk', '1');
+    sessionStorage.setItem('sjotter_actief', '1');
   } else {
-    localStorage.removeItem('aftrap_tijdelijk');
+    localStorage.removeItem('sjotter_tijdelijk');
   }
   // clubs-rij aanmaken indien nog niet (bv. na e-mailbevestiging)
   const { data: c } = await sb.from('clubs').select('id').eq('id', data.user.id).maybeSingle();
-  if (!c) await sb.from('clubs').insert({ id: data.user.id, club_naam: localStorage.getItem('td_clubnaam') || email.split('@')[0], email });
+  if (!c) await sb.from('clubs').insert({ id: data.user.id, club_naam: localStorage.getItem('sj_clubnaam') || email.split('@')[0], email });
   location.hash = '#/dashboard';
 };
 
@@ -547,11 +547,9 @@ function tabInstellingen(el, d){
     <div class="rij">
       <div><label>Middagpauze vanaf (optioneel)</label><input id="i-pstart" type="time" value="${t.pauze_start||''}"></div>
       <div><label>Duur middagpauze (min)</label><input id="i-pduur" type="number" min="5" max="120" value="${t.pauze_duur||''}"></div>
-      <div><label>Rangschikking bij gelijke punten</label><select id="i-rang">
-        <option value="saldo" ${t.rangschikking!=='onderling'?'selected':''}>Doelsaldo → gescoorde doelpunten</option>
-        <option value="onderling" ${t.rangschikking==='onderling'?'selected':''}>Onderling resultaat → doelsaldo</option>
-      </select></div>
     </div>
+    <label>Rangschikking in poules — bij gelijke punten beslissen deze criteria, in deze volgorde</label>
+    <div id="rang-lijst" style="max-width:420px"></div>
   </div>
   <div class="kaart">
     <h3>Inschrijvingen</h3>
@@ -565,7 +563,36 @@ function tabInstellingen(el, d){
     <button class="btn btn-p" onclick="app.bewaarInstellingen('${t.id}')">Wijzigingen bewaren</button>
     <button class="btn btn-r" onclick="app.verwijderToernooi('${t.id}')">Toernooi verwijderen</button>
   </div>`;
+  const r = (t.rangschikking || '').includes(',') ? t.rangschikking.split(',')
+    : t.rangschikking === 'onderling' ? ['onderling','saldo','gescoord','tegen','gewonnen']
+    : ['saldo','onderling','gescoord','tegen','gewonnen'];
+  window._rang = r.filter(x => RANG_NAMEN[x]);
+  for (const k of Object.keys(RANG_NAMEN)) if (!window._rang.includes(k)) window._rang.push(k);
+  tekenRang();
 }
+
+const RANG_NAMEN = { saldo:'Doelsaldo', onderling:'Onderling resultaat', gescoord:'Gescoorde doelpunten', tegen:'Minste tegendoelpunten', gewonnen:'Gewonnen wedstrijden' };
+
+function tekenRang(){
+  const el = $('#rang-lijst');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--lijn);border-radius:8px 8px 0 0;background:var(--papier);font-size:14px;color:var(--grijs)"><strong style="color:var(--inkt)">1. Aantal punten</strong> (vast)</div>
+    ${window._rang.map((k, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border:1px solid var(--lijn);border-top:none;font-size:14px;${i===window._rang.length-1?'border-radius:0 0 8px 8px':''}">
+      <span style="flex:1"><strong>${i+2}.</strong> ${RANG_NAMEN[k]}</span>
+      <button class="btn btn-o btn-sm" style="padding:3px 9px" ${i===0?'disabled':''} onclick="app.rangMove(${i},-1)">▲</button>
+      <button class="btn btn-o btn-sm" style="padding:3px 9px" ${i===window._rang.length-1?'disabled':''} onclick="app.rangMove(${i},1)">▼</button>
+    </div>`).join('')}`;
+}
+
+app.rangMove = (i, d) => {
+  const r = window._rang;
+  const j = i + d;
+  if (j < 0 || j >= r.length) return;
+  [r[i], r[j]] = [r[j], r[i]];
+  tekenRang();
+};
 
 app.bewaarInstellingen = async (id) => {
   const upd = {
@@ -578,7 +605,7 @@ app.bewaarInstellingen = async (id) => {
     kleur: $('#i-kleur').value || null,
     pauze_start: $('#i-pstart').value || null,
     pauze_duur: +$('#i-pduur').value || null,
-    rangschikking: $('#i-rang').value,
+    rangschikking: (window._rang || ['saldo','onderling','gescoord','tegen','gewonnen']).join(','),
   };
   const { error } = await sb.from('toernooien').update(upd).eq('id', id);
   if (error) return fout(error);
@@ -954,9 +981,11 @@ function berekenStand(teams, wedstrijden, modus = 'saldo'){
     else { A.gel++; B.gel++; A.ptn++; B.ptn++; }
   }
   const arr = Object.values(rij);
-  const saldoCmp = (a,b) => b.ptn - a.ptn || (b.dv-b.dt) - (a.dv-a.dt) || b.dv - a.dv || a.team.club_naam.localeCompare(b.team.club_naam);
-  if (modus !== 'onderling') return arr.sort(saldoCmp);
-  // onderling resultaat: bij gelijke punten beslist het onderlinge duel
+  // criteria-volgorde: nieuw formaat = csv, oude waarden migreren
+  let volg;
+  if ((modus || '').includes(',')) volg = modus.split(',');
+  else if (modus === 'onderling') volg = ['onderling','saldo','gescoord','tegen','gewonnen'];
+  else volg = ['saldo','onderling','gescoord','tegen','gewonnen'];
   arr.sort((a,b) => b.ptn - a.ptn);
   const res = [];
   let i = 0;
@@ -964,6 +993,7 @@ function berekenStand(teams, wedstrijden, modus = 'saldo'){
     let j = i; while (j < arr.length && arr[j].ptn === arr[i].ptn) j++;
     const groep = arr.slice(i, j);
     if (groep.length > 1) {
+      // onderlinge mini-tabel binnen de puntengroep
       const ids = new Set(groep.map(r => r.team.id));
       const mini = Object.fromEntries(groep.map(r => [r.team.id, { ptn:0, dv:0, dt:0 }]));
       for (const m of wedstrijden) {
@@ -973,8 +1003,19 @@ function berekenStand(teams, wedstrijden, modus = 'saldo'){
         if (m.score_a > m.score_b) A.ptn += 3; else if (m.score_a < m.score_b) B.ptn += 3; else { A.ptn++; B.ptn++; }
       }
       groep.sort((a,b) => {
-        const ma = mini[a.team.id], mb = mini[b.team.id];
-        return mb.ptn - ma.ptn || (mb.dv - mb.dt) - (ma.dv - ma.dt) || saldoCmp(a,b);
+        for (const c of volg) {
+          let v = 0;
+          if (c === 'saldo') v = (b.dv - b.dt) - (a.dv - a.dt);
+          else if (c === 'gescoord') v = b.dv - a.dv;
+          else if (c === 'tegen') v = a.dt - b.dt;
+          else if (c === 'gewonnen') v = b.w - a.w;
+          else if (c === 'onderling') {
+            const ma = mini[a.team.id], mb = mini[b.team.id];
+            v = mb.ptn - ma.ptn || (mb.dv - mb.dt) - (ma.dv - ma.dt);
+          }
+          if (v) return v;
+        }
+        return a.team.club_naam.localeCompare(b.team.club_naam);
       });
     }
     res.push(...groep);
@@ -982,6 +1023,7 @@ function berekenStand(teams, wedstrijden, modus = 'saldo'){
   }
   return res;
 }
+
 
 
 app.genereerFinales = async () => {
@@ -1830,7 +1872,7 @@ app.toonContact = (id) => {
   if (!z) return;
   $('#z-c-' + id).innerHTML = `<div style="font-size:13.5px">
     <strong>${h(z.contact_naam)}</strong><br>
-    <a href="mailto:${h(z.contact_email)}?subject=${encodeURIComponent('Oefenwedstrijd ' + z.categorie + ' — via Aftrap')}">${h(z.contact_email)}</a>
+    <a href="mailto:${h(z.contact_email)}?subject=${encodeURIComponent('Oefenwedstrijd ' + z.categorie + ' — via Sjotter')}">${h(z.contact_email)}</a>
     ${z.contact_telefoon ? '<br>' + h(z.contact_telefoon) : ''}
   </div>`;
 };
