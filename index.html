@@ -151,6 +151,10 @@ td.num,th.num{text-align:center;width:42px}
 .tv-voet{padding:12px 40px;font-size:15px;color:rgba(255,255,255,.5);display:flex;justify-content:space-between}
 /* ---------- categorie-bal ---------- */
 .cat-bal{width:58px;height:58px;border-radius:50%;background:linear-gradient(155deg,var(--blauw-d),var(--blauw));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Archivo';font-weight:900;font-size:18px;flex-shrink:0;box-shadow:var(--shadow)}
+.cat-bal.ob{background:linear-gradient(155deg,#166B3C,#2FB56A)}
+.cat-bal.mb{background:linear-gradient(155deg,#1D3E7A,#4E86E8)}
+.cat-bal.bb{background:linear-gradient(155deg,#9A3D0C,#F59E0B)}
+.cat-bal.bel{background:linear-gradient(155deg,#101B14,#3D4B42);font-size:14px}
 /* ---------- split landing ---------- */
 .btn-b{background:var(--hemel);color:#fff}
 .btn-b:hover{background:#3B72D4}
@@ -1845,11 +1849,12 @@ app.verwijderSponsor = async (id) => {
 /* ============================================================
    OEFENWEDSTRIJDEN (zoekertjes) — gratis
    ============================================================ */
-const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U21'];
+const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U21','Beloften'];
+const bouwVoor = c => { if (c === 'Beloften') return 'bel'; const n = parseInt(String(c).replace(/\D/g,'')) || 99; return n <= 9 ? 'ob' : n <= 13 ? 'mb' : 'bb'; };
 const NIVEAUS = ['gewestelijk','provinciaal','interprovinciaal'];
 const PROVINCIES = ['Antwerpen','Limburg','Oost-Vlaanderen','Vlaams-Brabant','West-Vlaanderen','Brussel','Henegouwen','Luik','Luxemburg','Namen','Waals-Brabant'];
 const NIVEAU_CODES = ['1','1-2','2','2-3','3'];
-const formaatVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 15; return n <= 6 ? '2v2 / 3v3' : n <= 9 ? '5v5' : n <= 13 ? '8v8' : '11v11'; };
+const formaatVoor = c => { if (c === 'Beloften') return '11v11'; const n = parseInt(String(c).replace(/\D/g,'')) || 15; return n <= 6 ? '2v2 / 3v3' : n <= 9 ? '5v5' : n <= 13 ? '8v8' : '11v11'; };
 let _zoek = [];
 
 async function vZoekLijst(){
@@ -1865,7 +1870,13 @@ async function vZoekLijst(){
       <div><label>Niveau</label><select id="z-f-niv"><option value="">Alle</option>${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
       <div><label>Provincie</label><select id="z-f-prov"><option value="">Alle</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" id="z-f-gras" style="width:auto"> Enkel kunstgras</label></div>
-    </div></div>
+    </div>
+    <p class="sub" style="margin-top:12px;font-size:12.5px">
+      <span style="color:#2FB56A">●</span> onderbouw U6–U9 &nbsp;
+      <span style="color:#4E86E8">●</span> middenbouw U10–U13 &nbsp;
+      <span style="color:#F59E0B">●</span> bovenbouw U14–U21 &nbsp;
+      <span style="color:#3D4B42">●</span> beloften
+    </p></div>
     <div id="z-lijst"><div class="leeg">Laden…</div></div>
   </div>` + voet();
   ['z-f-cat','z-f-niv','z-f-prov','z-f-gras'].forEach(id => $('#'+id).addEventListener('change', tekenZoek));
@@ -1883,7 +1894,7 @@ function tekenZoek(){
     <div class="kaart">
       <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <div style="display:flex;gap:16px;min-width:260px;align-items:flex-start">
-        <div class="cat-bal">${h(z.categorie)}</div>
+        <div class="cat-bal ${bouwVoor(z.categorie)}" title="${z.categorie==='Beloften'?'Beloften':bouwVoor(z.categorie)==='ob'?'Onderbouw':bouwVoor(z.categorie)==='mb'?'Middenbouw':'Bovenbouw'}">${z.categorie==='Beloften'?'BEL':h(z.categorie)}</div>
         <div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
             <span class="badge b-concept">${h(z.niveau)}</span>
