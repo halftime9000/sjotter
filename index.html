@@ -785,13 +785,17 @@ function tabSchema(el, d){
       <p class="sub">${t.aantal_velden} veld(en) · ${t.wedstrijdduur} min + ${t.pauze} min pauze · start ${t.starttijd}${eind ? ' · laatste aftrap ' + eind : ''}</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-p btn-sm" onclick="app.genereerSchema()">${d.wed.length ? '↻ Schema opnieuw genereren' : '⚙ Schema genereren'}</button>
-        <button class="btn btn-o btn-sm" onclick="app.genereerFinales()">🏆 Finales genereren</button>
+        <select id="fin-modus" style="width:auto;padding:7px 10px;font-size:13px">
+          <option value="recht">Rechtstreekse finales (1A–1B, 2A–2B…)</option>
+          <option value="kruis">Kruisfinales (1A–2B / 1B–2A → finale)</option>
+        </select>
+        <button class="btn btn-o btn-sm" onclick="app.genereerFinales()">🏆 Genereer finales</button>
         ${d.wed.length ? `<button class="btn btn-r btn-sm" onclick="app.wisSchema('${t.id}')">Wis schema</button>` : ''}
       </div>
     </div>
     ${zonderPoule ? `<div class="melding m-fout">${zonderPoule} ploeg(en) zitten nog niet in een poule — voer eerst de loting uit.</div>` : ''}
     ${!d.wed.length ? '<div class="leeg">Nog geen schema. Stel velden & tijden in bij Instellingen, doe de loting en genereer.</div>' : `
-    <table class="w-tabel" style="margin-top:14px"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th>Scheids</th><th style="text-align:center">Uitslag</th></tr>
+    <table class="w-tabel" style="margin-top:14px"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th>Scheids</th><th style="text-align:center">Uitslag</th><th></th></tr>
       ${tijden.map(tijd => perTijd[tijd].sort((a,b)=>a.veld-b.veld).map(w => `<tr>
         <td class="c-tijd"><span class="tijd">${w.starttijd}</span></td>
         <td class="c-veld"><span class="veldtag">Veld ${w.veld||'—'}</span></td>
@@ -803,11 +807,48 @@ function tabSchema(el, d){
           ${d.scheids.map(s => `<option value="${s.id}" ${w.scheidsrechter_id===s.id?'selected':''}>${h(s.naam)}</option>`).join('')}
         </select>` : ''}</td>
         <td class="score c-score" style="text-align:center">${w.score_a==null?'· - ·':w.score_a+' - '+w.score_b}</td>
+        <td>${w.fase==='finale' ? `<button class="btn btn-r btn-sm" onclick="app.verwijderWedstrijd('${w.id}')">✕</button>` : ''}</td>
       </tr>`).join('')).join('')}
     </table>`}
+    <hr class="krijt">
+    <details>
+      <summary style="font-weight:600;cursor:pointer;font-size:14px">+ Wedstrijd manueel toevoegen (kruisfinale, extra wedstrijd, eigen format)</summary>
+      <div class="rij" style="margin-top:12px">
+        <div><label>Team A</label><select id="mw-a">${d.teams.map(x => `<option value="${x.id}">${h(catMap[x.categorie_id]?.naam||'')} — ${teamNaam(x)}</option>`).join('')}</select></div>
+        <div><label>Team B</label><select id="mw-b">${d.teams.map(x => `<option value="${x.id}">${h(catMap[x.categorie_id]?.naam||'')} — ${teamNaam(x)}</option>`).join('')}</select></div>
+        <div><label>Label</label><input id="mw-label" value="Finale"></div>
+        <div><label>Veld</label><input id="mw-veld" type="number" min="1" value="1"></div>
+        <div><label>Starttijd</label><input id="mw-tijd" type="time"></div>
+        <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.manueleWedstrijd()" style="width:100%">Toevoegen</button></div>
+      </div>
+    </details>
   </div>`;
   el._d = d;
 }
+
+app.manueleWedstrijd = async () => {
+  const d = $('#tab-inhoud')._d;
+  const a = $('#mw-a').value, b = $('#mw-b').value;
+  if (a === b) return toast('Kies twee verschillende teams');
+  const ta = d.teams.find(x => x.id === a), tb = d.teams.find(x => x.id === b);
+  if (ta.categorie_id !== tb.categorie_id) return toast('Kies twee teams uit dezelfde categorie');
+  if (!$('#mw-tijd').value) return toast('Kies een starttijd');
+  const { error } = await sb.from('wedstrijden').insert({
+    toernooi_id: d.t.id, categorie_id: ta.categorie_id, fase: 'finale',
+    label: $('#mw-label').value.trim() || 'Finale',
+    team_a: a, team_b: b, veld: +$('#mw-veld').value || 1,
+    starttijd: $('#mw-tijd').value, volgorde: 200000
+  });
+  if (error) return fout(error);
+  toast('Wedstrijd toegevoegd ✓'); render();
+};
+
+app.verwijderWedstrijd = async (id) => {
+  if (!confirm('Deze wedstrijd verwijderen?')) return;
+  const { error } = await sb.from('wedstrijden').delete().eq('id', id);
+  if (error) return fout(error);
+  render();
+};
 
 app.genereerSchema = async () => {
   const d = $('#tab-inhoud')._d;
@@ -846,42 +887,65 @@ function berekenStand(teams, wedstrijden){
 
 app.genereerFinales = async () => {
   const d = $('#tab-inhoud')._d;
+  const modus = $('#fin-modus') ? $('#fin-modus').value : 'recht';
   const { t } = d;
-  let laatste = d.wed.reduce((m,w) => w.starttijd > m ? w.starttijd : m, t.starttijd);
+  let laatste = d.wed.reduce((m,w) => (w.starttijd||'') > m ? w.starttijd : m, t.starttijd);
   const slotDuur = t.wedstrijdduur + t.pauze;
   const nieuwe = [];
-  let melding = [];
+  const meldingen = [];
+  const win = w => w.score_a > w.score_b ? w.team_a : w.team_b;
+  const verl = w => w.score_a > w.score_b ? w.team_b : w.team_a;
+
   for (const c of d.cats) {
     const catW = d.wed.filter(w => w.categorie_id === c.id && w.fase === 'poule');
     if (!catW.length) continue;
-    if (catW.some(w => w.score_a == null)) { melding.push(`${c.naam}: nog niet alle poule-uitslagen ingevuld`); continue; }
-    if (d.wed.some(w => w.categorie_id === c.id && w.fase === 'finale')) continue;
+    if (catW.some(w => w.score_a == null)) { meldingen.push(`${c.naam}: poulefase nog niet volledig`); continue; }
     const letters = [...new Set(d.teams.filter(x => x.categorie_id === c.id && x.poule).map(x => x.poule))].sort();
-    if (letters.length !== 2) { if (letters.length > 2) melding.push(`${c.naam}: ${letters.length} poules — finales manueel toe te voegen`); continue; }
+    if (letters.length !== 2) { if (letters.length > 2) meldingen.push(`${c.naam}: ${letters.length} poules — gebruik "wedstrijd manueel toevoegen"`); continue; }
     const standA = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[0]), catW.filter(w=>w.poule===letters[0]));
     const standB = berekenStand(d.teams.filter(x=>x.categorie_id===c.id&&x.poule===letters[1]), catW.filter(w=>w.poule===letters[1]));
+    const finales = d.wed.filter(w => w.categorie_id === c.id && w.fase === 'finale');
+    const hfs = finales.filter(w => (w.label||'').startsWith('Halve finale')).sort((a,b)=>(a.label||'').localeCompare(b.label||''));
     const n = Math.min(standA.length, standB.length);
-    for (let i = 0; i < n; i++) {
-      nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale',
-        label: i === 0 ? 'Finale' : `Plaats ${i*2+1}-${i*2+2}`,
-        team_a: standA[i].team.id, team_b: standB[i].team.id, volgorde: 100000 + i });
+
+    if (modus === 'kruis') {
+      if (!hfs.length) {
+        if (finales.length) { meldingen.push(`${c.naam}: er bestaan al finalewedstrijden — verwijder ze eerst`); continue; }
+        if (n < 2) { meldingen.push(`${c.naam}: te weinig ploegen per poule voor kruisfinales`); continue; }
+        nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale', label: 'Halve finale 1', team_a: standA[0].team.id, team_b: standB[1].team.id, volgorde: 100000 });
+        nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale', label: 'Halve finale 2', team_a: standB[0].team.id, team_b: standA[1].team.id, volgorde: 100001 });
+        for (let i = 2; i < n; i++) {
+          nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale', label: `Plaats ${i*2+1}-${i*2+2}`, team_a: standA[i].team.id, team_b: standB[i].team.id, volgorde: 100002 + i });
+        }
+      } else if (!finales.some(w => w.label === 'Finale')) {
+        if (hfs.length < 2 || hfs.some(w => w.score_a == null)) { meldingen.push(`${c.naam}: halve finales nog niet (volledig) gespeeld`); continue; }
+        if (hfs.some(w => w.score_a === w.score_b)) { meldingen.push(`${c.naam}: halve finale eindigde gelijk — geef de winnaar (bv. na penalty's) 1 doelpunt extra`); continue; }
+        nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale', label: 'Finale', team_a: win(hfs[0]), team_b: win(hfs[1]), volgorde: 150001 });
+        nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale', label: 'Plaats 3-4', team_a: verl(hfs[0]), team_b: verl(hfs[1]), volgorde: 150000 });
+      }
+    } else {
+      if (finales.length) continue;
+      for (let i = 0; i < n; i++) {
+        nieuwe.push({ toernooi_id: t.id, categorie_id: c.id, fase: 'finale',
+          label: i === 0 ? 'Finale' : `Plaats ${i*2+1}-${i*2+2}`,
+          team_a: standA[i].team.id, team_b: standB[i].team.id, volgorde: 100000 + i });
+      }
     }
   }
-  if (!nieuwe.length) return toast(melding[0] || 'Geen finales te genereren');
-  // plan finales na de laatste poulewedstrijd, finale van elke reeks als laatste
+
+  if (!nieuwe.length) return toast(meldingen[0] || 'Geen finales te genereren');
+  // plannen na de laatste bestaande wedstrijd; belangrijkste wedstrijd als laatste
   nieuwe.sort((a,b) => b.volgorde - a.volgorde);
-  let slot = 1;
   const perSlot = [];
-  const bezet = () => perSlot[perSlot.length-1] || [];
   for (const w of nieuwe) {
-    if (!perSlot.length || bezet().length >= t.aantal_velden) perSlot.push([]);
+    if (!perSlot.length || perSlot[perSlot.length-1].length >= t.aantal_velden) perSlot.push([]);
     perSlot[perSlot.length-1].push(w);
   }
-  perSlot.forEach((s, si) => s.forEach((w, vi) => { w.starttijd = tijdPlus(laatste, (si+1)*slotDuur); w.veld = vi+1; w.volgorde = 100000 + si*100 + vi; }));
+  perSlot.forEach((s, si) => s.forEach((w, vi) => { w.starttijd = tijdPlus(laatste, (si+1)*slotDuur); w.veld = vi+1; }));
   const { error } = await sb.from('wedstrijden').insert(nieuwe);
   if (error) return fout(error);
-  toast(`${nieuwe.length} finalewedstrijden toegevoegd 🏆`);
-  if (melding.length) setTimeout(()=>toast(melding[0]), 2800);
+  toast(`${nieuwe.length} wedstrijd(en) toegevoegd 🏆`);
+  if (meldingen.length) setTimeout(() => toast(meldingen[0]), 2800);
   render();
 };
 
@@ -1692,6 +1756,7 @@ function vHelp(){
       ${V('Hoe werkt de betaling?', 'Bij het tabblad "Publicatie & betaling" vind je ons rekeningnummer en een unieke mededeling. Na overschrijving (of Payconiq) wordt je betaling meestal binnen 1 werkdag verwerkt en kan je publiceren.')}
       ${V('Hoe schrijven clubs zich in?', 'Na publicatie krijg je een publieke link. Deel die met de clubs \u2014 zij schrijven hun ploegen zelf in per leeftijdscategorie. Vol is vol: het maximum per categorie bewaak je zelf bij de instellingen.')}
       ${V('Hoe werkt de loting en het speelschema?', 'Met \u00e9\u00e9n klik verdeelt de loting de ploegen over de poules, waarbij ploegen van dezelfde club uit elkaar gehouden worden. Daarna genereert het schema zich automatisch op basis van je velden, wedstrijdduur en pauzes \u2014 zonder dubbele boekingen. Alles blijft nadien manueel bij te sturen.')}
+      ${V('Kan ik kruisfinales of een eigen format spelen?', 'Ja. Bij het tabblad Schema kies je de finalemodus: rechtstreekse finales (1A\u20131B) of kruisfinales (1A\u20132B en 1B\u20132A, waarna je met dezelfde knop de finale uit de winnaars genereert). Volledig eigen formats bouw je met "wedstrijd manueel toevoegen" \u2014 je kiest zelf de teams, het label, het veld en het tijdstip.')}
       ${V('Wat doen de scheidsrechterslinks?', 'Elke scheidsrechter krijgt een persoonlijke link waarop hij enkel zijn eigen wedstrijden ziet en zelf de scores kan ingeven. Die verschijnen meteen op de live standen en het TV-scherm.')}
       ${V('Wat is het TV-scherm?', 'Een link die je op een groot scherm in de kantine opent: hij toont automatisch roterend het programma, de live standen en je sponsors \u2014 de hele dag, zonder dat je iets moet doen.')}
     </div>
