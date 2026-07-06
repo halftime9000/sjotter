@@ -227,6 +227,7 @@ function shuffle(a){ const x=[...a]; for(let i=x.length-1;i>0;i--){const j=Math.
 function teamNaam(t){ return t ? h(t.club_naam + (t.team_naam ? ' ' + t.team_naam : '')) : '—'; }
 function teamHtml(t){ if (!t) return '—'; return (t.logo_url ? `<img class="tlogo" src="${h(t.logo_url)}" alt="">` : '') + teamNaam(t); }
 const isAdmin = () => sessie && sessie.user.id === CONFIG.SUPER_ADMIN_UID;
+const veiligeKleur = k => (typeof k === 'string' && /^#[0-9a-fA-F]{6}$/.test(k)) ? k : null;
 
 async function uploadLogo(file, maat = 128){
   const img = await createImageBitmap(file);
@@ -501,6 +502,10 @@ function tabInstellingen(el, d){
     </div>
     <label>Beschrijving (publieke pagina)</label>
     <textarea id="i-beschrijving" rows="3">${h(t.beschrijving||'')}</textarea>
+    <div class="rij" style="margin-top:4px">
+      <div style="flex:0 0 auto;min-width:auto"><label>Clubkleur (publieke pagina & TV)</label>
+        <input id="i-kleur" type="color" value="${veiligeKleur(t.kleur) || '#0D3B20'}" style="width:70px;height:42px;padding:3px;cursor:pointer"></div>
+    </div>
   </div>
   <div class="kaart">
     <h3>Speelschema-instellingen</h3>
@@ -534,6 +539,7 @@ app.bewaarInstellingen = async (id) => {
     aantal_velden: +$('#i-velden').value || 1, wedstrijdduur: +$('#i-duur').value || 15,
     pauze: +$('#i-pauze').value || 0, starttijd: $('#i-start').value || '09:00',
     inschrijving_open: $('#i-open').value === 'true', deadline: $('#i-deadline').value || null,
+    kleur: $('#i-kleur').value || null,
   };
   const { error } = await sb.from('toernooien').update(upd).eq('id', id);
   if (error) return fout(error);
@@ -1000,7 +1006,9 @@ async function vPubliek(slug, tab){
   const P = n => `#/p/${slug}/${n}`;
   const open = t.inschrijving_open && (!t.deadline || t.deadline >= new Date().toISOString().slice(0,10));
 
+  const kleur = veiligeKleur(t.kleur);
   root().innerHTML = topbar() + `
+  ${kleur ? `<style>#root .hero{background:${kleur}} #root .poule-kop{background:${kleur}}</style>` : ''}
   <section class="hero" style="padding:44px 20px 50px"><div class="hero-in">
     <h1 style="font-size:clamp(26px,5vw,42px)">${h(t.naam)}</h1>
     <p style="margin-bottom:0">${datumNL(t.datum)} · ${h(t.locatie||'')}</p>
@@ -1249,12 +1257,13 @@ async function vTv(slug){
 
 async function tvLaad(){
   const tid = _tv.t.id;
-  const [cats, teams, wed] = await Promise.all([
+  const [cats, teams, wed, sps] = await Promise.all([
     sb.from('categorieen').select('*').eq('toernooi_id', tid).order('volgorde').order('naam'),
     sb.from('teams').select('*').eq('toernooi_id', tid),
     sb.from('wedstrijden').select('*').eq('toernooi_id', tid).order('volgorde'),
+    sb.from('sponsors').select('*').eq('toernooi_id', tid).order('volgorde').order('naam'),
   ]);
-  _tv.cats = cats.data || []; _tv.teams = teams.data || []; _tv.wed = wed.data || [];
+  _tv.cats = cats.data || []; _tv.teams = teams.data || []; _tv.wed = wed.data || []; _tv.sponsors = sps.data || [];
 }
 
 function tvSlides(){
@@ -1263,6 +1272,7 @@ function tvSlides(){
     if (_tv.wed.some(w => w.categorie_id === c.id)) s.push({ type: 'prog', cat: c });
     if (_tv.teams.some(x => x.categorie_id === c.id && x.poule)) s.push({ type: 'stand', cat: c });
   }
+  if ((_tv.sponsors || []).length) s.push({ type: 'sponsors' });
   return s.length ? s : [{ type: 'leeg' }];
 }
 
@@ -1295,11 +1305,20 @@ function tvTeken(reset = true){
     const ws = _tv.wed.filter(w => w.categorie_id === sl.cat.id && w.fase === 'poule');
     inhoud = `<div class="poule-grid">${letters.map(L => standTabel(L,
       berekenStand(_tv.teams.filter(x => x.categorie_id === sl.cat.id && x.poule === L), ws.filter(w => w.poule === L)))).join('')}</div>`;
+  } else if (sl.type === 'sponsors') {
+    catNaam = 'Met dank aan onze sponsors';
+    inhoud = `<div style="display:flex;gap:34px;align-items:center;justify-content:center;flex-wrap:wrap;height:100%">
+      ${_tv.sponsors.map(s => `<div style="background:#fff;border-radius:14px;padding:22px 30px;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:180px">
+        ${s.logo_url ? `<img src="${h(s.logo_url)}" alt="" style="height:72px;max-width:220px;object-fit:contain">` : ''}
+        <span style="color:var(--inkt);font-weight:700;font-size:18px">${h(s.naam)}</span>
+      </div>`).join('')}
+    </div>`;
   } else {
     inhoud = '<div class="leeg" style="color:rgba(255,255,255,.6);font-size:22px">Het programma verschijnt hier zodra het klaar is.</div>';
   }
 
-  root().innerHTML = `<div class="tv">
+  const tvKleur = veiligeKleur(_tv.t.kleur);
+  root().innerHTML = `<div class="tv"${tvKleur ? ` style="background:${tvKleur}"` : ''}>
     <div class="tv-kop"><h1>${h(_tv.t.naam)}</h1><div class="tv-klok">${nu}</div></div>
     ${catNaam ? `<div class="tv-cat">${h(catNaam)}</div>` : ''}
     <div class="tv-inhoud">${inhoud}</div>
@@ -1314,10 +1333,20 @@ async function tabScheids(el, d){
   const { data: codes } = await sb.from('scheids_codes').select('*').in('scheidsrechter_id', d.scheids.map(s=>s.id).concat(['00000000-0000-0000-0000-000000000000']));
   const codeMap = Object.fromEntries((codes||[]).map(c => [c.scheidsrechter_id, c.code]));
   const basis = location.origin + location.pathname + '#/s/';
+  el._d = d;
   el.innerHTML = `
   <div class="kaart">
-    <h3>Scheidsrechters</h3>
-    <p class="sub">Elke scheidsrechter krijgt een persoonlijke link: daarop ziet hij enkel zijn eigen wedstrijden en kan hij zelf de scores ingeven. Wedstrijden wijs je toe in het tabblad Schema.</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+      <div><h3>Scheidsrechters</h3>
+      <p class="sub">Elke scheidsrechter krijgt een persoonlijke link: daarop ziet hij enkel zijn eigen wedstrijden en kan hij zelf de scores ingeven. Fijnregelen kan altijd per wedstrijd in het tabblad Schema.</p></div>
+      ${d.scheids.length && d.wed.length ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="sr-modus" style="width:auto;padding:8px 10px;font-size:13px">
+          <option value="random">Willekeurig verdeeld</option>
+          <option value="veld">Vast veld per scheidsrechter</option>
+        </select>
+        <button class="btn btn-p btn-sm" onclick="app.autoScheids()">⚡ Automatisch toewijzen</button>
+      </div>` : ''}
+    </div>
     ${d.scheids.length ? `<table style="margin-top:12px"><tr><th>Naam</th><th class="num">Wedstrijden</th><th>Persoonlijke link</th><th></th></tr>
       ${d.scheids.map(s => { const link = codeMap[s.id] ? basis + codeMap[s.id] : null;
         return `<tr>
@@ -1350,6 +1379,42 @@ app.verwijderScheids = async (id) => {
   const { error } = await sb.from('scheidsrechters').delete().eq('id', id);
   if (error) return fout(error);
   render();
+};
+
+app.autoScheids = async () => {
+  const d = $('#tab-inhoud')._d;
+  const modus = $('#sr-modus').value;
+  if (!d.wed.length) return toast('Genereer eerst het speelschema');
+  const updates = [];
+
+  if (modus === 'veld') {
+    const velden = [...new Set(d.wed.map(w => w.veld).filter(Boolean))].sort((a,b) => a - b);
+    const n = Math.min(velden.length, d.scheids.length);
+    if (!confirm(`Elke scheidsrechter krijgt een vast veld:\n${velden.slice(0, n).map((v, i) => `Veld ${v} → ${d.scheids[i].naam}`).join('\n')}${d.scheids.length < velden.length ? `\n(Velden zonder scheidsrechter blijven leeg)` : ''}\n\nBestaande toewijzingen worden overschreven. Doorgaan?`)) return;
+    const perVeld = {};
+    velden.forEach((v, i) => perVeld[v] = i < d.scheids.length ? d.scheids[i].id : null);
+    d.wed.forEach(w => updates.push({ id: w.id, sr: perVeld[w.veld] ?? null }));
+  } else {
+    if (!confirm(`De ${d.wed.length} wedstrijden worden willekeurig en evenwichtig verdeeld over ${d.scheids.length} scheidsrechter(s). Niemand krijgt twee wedstrijden op hetzelfde tijdstip.\n\nBestaande toewijzingen worden overschreven. Doorgaan?`)) return;
+    const perSlot = {};
+    d.wed.forEach(w => (perSlot[w.starttijd || '?'] ||= []).push(w));
+    const telling = Object.fromEntries(d.scheids.map(s => [s.id, 0]));
+    for (const tijd of Object.keys(perSlot).sort()) {
+      const bezet = new Set();
+      for (const w of shuffle(perSlot[tijd])) {
+        const vrij = shuffle(d.scheids.filter(s => !bezet.has(s.id))).sort((a, b) => telling[a.id] - telling[b.id]);
+        const keuze = vrij[0] || null;
+        if (keuze) { bezet.add(keuze.id); telling[keuze.id]++; }
+        updates.push({ id: w.id, sr: keuze ? keuze.id : null });
+      }
+    }
+  }
+
+  for (const u of updates) {
+    const { error } = await sb.from('wedstrijden').update({ scheidsrechter_id: u.sr }).eq('id', u.id);
+    if (error) return fout(error);
+  }
+  toast('Scheidsrechters toegewezen ⚡'); render();
 };
 
 app.zetScheids = async (wid, srId) => {
