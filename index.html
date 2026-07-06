@@ -207,6 +207,7 @@ const CONFIG = {
   PRIJS: 20,
   IBAN: 'BE00 0000 0000 0000',
   BEGUNSTIGDE: 'Aftrap',
+  CONTACT_EMAIL: 'aftrapbe@gmail.com',
 };
 
 const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -265,6 +266,7 @@ async function render(){
     if (p[0] === 'dashboard') return vDashboard();
     if (p[0] === 't' && p[1]) return vBeheer(p[1], p[2] || 'instellingen');
     if (p[0] === 'p' && p[1]) return vPubliek(p[1], p[2] || 'info');
+    if (p[0] === 'privacy') return vPrivacy();
     if (p[0] === 'admin') return vAdmin();
     if (p[0] === 's' && p[1]) return vScheids(p[1]);
     if (p[0] === 'tv' && p[1]) return vTv(p[1]);
@@ -324,7 +326,7 @@ function vLanding(){
       </ul>
       <a href="#/wedstrijden" class="btn btn-b">Bekijk de zoekertjes</a>
     </section>
-  </div>`;
+  </div>` + voet();
 }
 
 /* ============================================================
@@ -1023,7 +1025,7 @@ async function vPubliek(slug, tab){
       ${d.sponsors.map(s => { const inner = s.logo_url ? `<img src="${h(s.logo_url)}" alt="${h(s.naam)}" title="${h(s.naam)}">` : `<span class="s-naam">${h(s.naam)}</span>`;
         return s.website ? `<a href="${h(s.website)}" target="_blank" rel="noopener">${inner}</a>` : inner; }).join('')}
     </div>` : ''}
-  </div>`;
+  </div>` + voet();
 
   const el = $('#pub-inhoud');
   if (tab === 'info') pubInfo(el, d, open);
@@ -1539,7 +1541,7 @@ async function vZoekLijst(){
       <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" id="z-f-gras" style="width:auto"> Enkel kunstgras</label></div>
     </div></div>
     <div id="z-lijst"><div class="leeg">Laden…</div></div>
-  </div>`;
+  </div>` + voet();
   ['z-f-cat','z-f-niv','z-f-prov','z-f-gras'].forEach(id => $('#'+id).addEventListener('change', tekenZoek));
   const vandaag = new Date().toISOString().slice(0,10);
   const { data, error } = await sb.from('zoekertjes').select('*').eq('status','open').order('created_at', { ascending: false });
@@ -1666,6 +1668,38 @@ app.zoekActie = async (id, code, actie) => {
   location.hash = '#/wedstrijden';
 };
 
+
+
+/* ============================================================
+   PRIVACY & FOOTER
+   ============================================================ */
+function voet(){
+  return `<footer style="text-align:center;padding:26px 20px;font-size:13px;color:var(--grijs)">
+    © ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/privacy">Privacyverklaring</a> · <a href="mailto:${CONFIG.CONTACT_EMAIL}">Contact</a>
+  </footer>`;
+}
+
+function vPrivacy(){
+  root().innerHTML = topbar() + `<div class="wrap" style="max-width:720px">
+    <div class="kaart">
+      <h3>Privacyverklaring</h3>
+      <p class="sub">Laatst bijgewerkt: juli 2026</p>
+      <div style="font-size:14.5px;line-height:1.7;margin-top:14px">
+        <p><strong>Wie zijn wij?</strong><br>${CONFIG.PLATFORM} is een platform voor het organiseren van jeugdvoetbaltoernooien en het vinden van oefenwedstrijden. Contact: <a href="mailto:${CONFIG.CONTACT_EMAIL}">${CONFIG.CONTACT_EMAIL}</a>.</p>
+        <p style="margin-top:12px"><strong>Welke gegevens verwerken we?</strong><br>
+        Bij een clubaccount: clubnaam, e-mailadres en wachtwoord (versleuteld). Bij een ploeginschrijving of zoekertje: clubnaam, naam, e-mailadres en telefoonnummer van de contactpersoon. Optioneel: een clublogo.</p>
+        <p style="margin-top:12px"><strong>Waarvoor gebruiken we ze?</strong><br>
+        Uitsluitend voor de werking van het platform: de organisator van een toernooi kan de contactgegevens van ingeschreven ploegen raadplegen; bij zoekertjes worden contactgegevens getoond aan bezoekers zodat clubs elkaar kunnen bereiken. We verkopen of delen geen gegevens met derden en gebruiken geen advertentie- of trackingcookies.</p>
+        <p style="margin-top:12px"><strong>Waar worden ze bewaard?</strong><br>
+        Op servers van Supabase in de Europese Unie (regio Frankfurt). Contactgegevens van ingeschreven ploegen zijn niet publiek zichtbaar en enkel toegankelijk voor de organisator van het betreffende toernooi.</p>
+        <p style="margin-top:12px"><strong>Hoelang bewaren we ze?</strong><br>
+        Zolang het toernooi of zoekertje bestaat. Verwijdert de organisator een toernooi, dan worden alle bijhorende gegevens definitief gewist. Zoekertjes kunnen door de plaatser zelf verwijderd worden via de beheerlink.</p>
+        <p style="margin-top:12px"><strong>Jouw rechten</strong><br>
+        Je hebt recht op inzage, correctie en verwijdering van je gegevens. Mail ons op <a href="mailto:${CONFIG.CONTACT_EMAIL}">${CONFIG.CONTACT_EMAIL}</a> en we handelen je verzoek binnen 30 dagen af.</p>
+      </div>
+    </div>
+  </div>` + voet();
+}
 
 boot();
 </script>
