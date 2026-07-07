@@ -1978,9 +1978,15 @@ function tekenZoek(){
           ${z.opmerking ? `<p style="font-size:14px;margin-top:8px">${h(z.opmerking)}</p>` : ''}
         </div>
         </div>
-        <div id="z-c-${z.id}" style="text-align:right">${z.contact_voorkeur === 'bericht'
-          ? `<button class="btn btn-b btn-sm" onclick="app.toonBerichtForm('${z.id}')">✉ Stuur een bericht</button>`
-          : `<button class="btn btn-o btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button>`}</div>
+        <div id="z-c-${z.id}" style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          ${z.contact_voorkeur === 'bericht'
+            ? `<button class="btn btn-b btn-sm" onclick="app.toonBerichtForm('${z.id}')">✉ Stuur een bericht</button>`
+            : `<button class="btn btn-o btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button>`}
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-o btn-sm" style="padding:5px 9px;font-size:12px" onclick="app.zoekActiePin('${z.id}','gevonden')" title="Markeer als gevonden">✓ Gevonden</button>
+            <button class="btn btn-o btn-sm" style="padding:5px 9px;font-size:12px" onclick="app.zoekActiePin('${z.id}','verwijder')" title="Verwijderen">✕</button>
+          </div>
+        </div>
       </div>
     </div>`).join('') || '<div class="kaart"><div class="leeg">Geen zoekertjes gevonden met deze filters. Plaats zelf het eerste!</div></div>';
 }
@@ -2039,6 +2045,21 @@ app.herstelZoekertjes = async () => {
   $('#h-melding').innerHTML = '<div class="melding m-ok">✓ Als er zoekertjes gevonden werden onder dit e-mailadres, ontvang je binnen enkele minuten een e-mail met de beheerlink(s).</div>';
 };
 
+app.zoekActiePin = async (id, actie) => {
+  const pin = await vraagInvoer({
+    titel: actie === 'gevonden' ? 'Markeer als gevonden' : 'Zoekertje verwijderen',
+    uitleg: 'Vul de pincode in die je koos bij het plaatsen van dit zoekertje.',
+    label: 'Pincode',
+    knop: actie === 'gevonden' ? 'Markeren' : 'Verwijderen',
+  });
+  if (!pin) return;
+  const { data, error } = await sb.rpc('zoekertje_beheer_pin', { zid: id, pin, actie });
+  if (error) return fout(error);
+  if (!data) return toast('Onjuiste pincode');
+  toast(actie === 'gevonden' ? 'Gemarkeerd als gevonden ✓' : 'Zoekertje verwijderd');
+  render();
+};
+
 app.toonContact = (id) => {
   const z = _zoek.find(x => x.id === id);
   if (!z) return;
@@ -2079,6 +2100,9 @@ function vZoekPlaatsen(){
         <div><label>E-mail *</label><input id="z-cemail" type="email"></div>
         <div><label>GSM (optioneel)</label><input id="z-ctel"></div>
       </div>
+      <label>Kies een pincode (4 cijfers) *</label>
+      <input id="z-pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" style="max-width:120px;font-family:'IBM Plex Mono',monospace;font-size:18px;letter-spacing:.2em;text-align:center">
+      <p class="sub" style="margin-top:4px">Hiermee kan je dit zoekertje later meteen beheren vanaf de lijst — ook zonder je e-mail te checken.</p>
       <label>Hoe wil je gecontacteerd worden?</label>
       <div style="display:flex;gap:18px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="radio" name="z-voorkeur" value="open" checked style="width:auto"> Toon mijn gegevens bij het zoekertje</label>
@@ -2093,6 +2117,7 @@ function vZoekPlaatsen(){
 app.plaatsZoekertje = async () => {
   const v = id => $('#' + id).value.trim();
   if (!v('z-club') || !v('z-gemeente') || !v('z-cnaam') || !v('z-cemail')) return toast('Vul de verplichte velden in (*)');
+  if (!/^[0-9]{4}$/.test(v('z-pin'))) return toast('Kies een pincode van precies 4 cijfers');
   if (!v('z-datum') && !$('#z-flex').checked) return toast('Kies een speeldatum of vink "datum in overleg" aan');
   const { data: z, error } = await sb.from('zoekertjes').insert({
     club_naam: v('z-club'), gemeente: v('z-gemeente'), provincie: $('#z-prov').value,
@@ -2105,7 +2130,7 @@ app.plaatsZoekertje = async () => {
   }).select().single();
   if (error) return fout(error);
   const code = rand(10);
-  await sb.from('zoekertje_codes').insert({ zoekertje_id: z.id, code });
+  await sb.from('zoekertje_codes').insert({ zoekertje_id: z.id, code, pincode: v('z-pin') });
   const link = location.origin + location.pathname + '#/wedstrijden/beheer/' + z.id + '/' + code;
   if (window.emailjs && CONFIG.EMAILJS_TEMPLATE !== 'VUL_IN') {
     emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
@@ -2115,7 +2140,7 @@ app.plaatsZoekertje = async () => {
       bericht: `Bedankt om je zoekertje te plaatsen! Bewaar deze e-mail: met onderstaande link beheer je je zoekertje (markeren als gevonden of verwijderen).\n\nBeheerlink: ${link}`,
     }).catch(e => console.error('beheerlink-mail mislukt', e));
   }
-  $('#z-melding').innerHTML = `<div class="melding m-ok">✓ Je zoekertje staat online! We stuurden de beheerlink ook naar <strong>${h(z.contact_email)}</strong> — bewaar die e-mail.<br><br>
+  $('#z-melding').innerHTML = `<div class="melding m-ok">✓ Je zoekertje staat online! Je pincode is <strong style="font-family:'IBM Plex Mono',monospace;font-size:16px">${h(v('z-pin'))}</strong> — daarmee beheer je het zo dadelijk vanaf de lijst. We stuurden ook een beheerlink naar <strong>${h(z.contact_email)}</strong>.<br><br>
     <input readonly value="${h(link)}" style="margin-top:8px" onclick="this.select()">
     <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd ✓'))">Kopieer link</button>
   </div>`;
