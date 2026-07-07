@@ -707,12 +707,13 @@ function tabCategorieen(el, d){
     ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
     <hr class="krijt">
     <div class="rij">
-      <div><label>Categorie</label><select id="c-naam">${Array.from({length:14},(_,i)=>`<option>U${i+6}</option>`).join('')}<option>Dames</option></select></div>
+      <div><label>Categorie</label><select id="c-naam">${Array.from({length:14},(_,i)=>`<option>U${i+6}</option>`).join('')}<option>Dames</option><option>Elite</option></select></div>
       <div><label>Niveau (optioneel)</label><select id="c-niveau">
         <option value="">\u2014</option>
         <option value="REG">REG (regionaal)</option>
         <option value="PROV">PROV (provinciaal)</option>
         <option value="IP">IP (interprovinciaal)</option>
+        <option value="Elite">Elite</option>
       </select></div>
       <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="32" value="8"></div>
       <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="8" value="2"></div>
@@ -1517,7 +1518,7 @@ async function vAdmin(){
         <td class="mono" style="font-size:12.5px">${h(t.betaalref||'—')}</td>
         <td><span class="badge ${t.status==='gepubliceerd'?'b-live':'b-concept'}">${t.status}</span></td>
         <td><button class="btn ${t.betaald?'btn-o':'btn-p'} btn-sm" onclick="app.toggleBetaald('${t.id}', ${!t.betaald})">${t.betaald ? '✓ Betaald' : 'Markeer betaald'}</button></td>
-        <td><button class="btn btn-r btn-sm" onclick="app.adminVerwijderToernooi('${t.id}')">✕</button></td>
+        <td style="white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkToernooi('${t.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.adminVerwijderToernooi('${t.id}')">✕</button></td>
       </tr>`).join('') || '<tr><td colspan="7" class="leeg">Nog geen toernooien.</td></tr>'}
       </table>
     </div>
@@ -1532,7 +1533,7 @@ async function vAdmin(){
         <td>${z.flexibel || !z.datum ? 'in overleg' : z.datum}</td>
         <td style="font-size:12.5px">${h(z.contact_naam)}<br>${h(z.contact_email)}${z.contact_telefoon ? '<br>'+h(z.contact_telefoon) : ''}</td>
         <td><button class="btn btn-o btn-sm" onclick="app.adminZoekStatus('${z.id}', '${z.status==='open'?'gevonden':'open'}')">${z.status==='open' ? '🟢 open' : 'gevonden'}</button></td>
-        <td><button class="btn btn-r btn-sm" onclick="app.adminVerwijderZoekertje('${z.id}')">✕</button></td>
+        <td style="white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkZoekertje('${z.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.adminVerwijderZoekertje('${z.id}')">✕</button></td>
       </tr>`).join('') || '<tr><td colspan="7" class="leeg">Nog geen zoekertjes.</td></tr>'}
       </table>
     </div>
@@ -1559,7 +1560,7 @@ async function vAdmin(){
         <td>${h(c.email||'—')}</td>
         <td>${(c.created_at||'').slice(0,10)}</td>
         <td class="num">${(ts.data||[]).filter(t=>t.club_id===c.id).length}</td>
-        <td style="text-align:right">${c.id === CONFIG.SUPER_ADMIN_UID ? '<span class="badge b-geel">admin</span>' : `<button class="btn btn-r btn-sm" onclick="app.adminVerwijderClub('${c.id}')">✕</button>`}</td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkClub('${c.id}')">✎</button> ${c.id === CONFIG.SUPER_ADMIN_UID ? '<span class="badge b-geel">admin</span>' : `<button class="btn btn-r btn-sm" onclick="app.adminVerwijderClub('${c.id}')">✕</button>`}</td>
       </tr>`).join('')}
       </table>
     </div>
@@ -1654,6 +1655,133 @@ app.adminVerwijderClub = async (id) => {
   const { error } = await sb.from('clubs').delete().eq('id', id);
   if (error) return fout(error);
   toast('Club verwijderd'); render();
+};
+
+app.bewerkToernooi = async (id) => {
+  const { data: t, error: e1 } = await sb.from('toernooien').select('*').eq('id', id).single();
+  if (e1 || !t) return fout(e1 || new Error('Niet gevonden'));
+  const scherm = document.createElement('div');
+  scherm.className = 'modal-scherm';
+  scherm.innerHTML = `<div class="modal-kaart" style="max-width:520px">
+    <h3>Toernooi bewerken</h3>
+    <p class="sub">Beheerdersaanpassing \u2014 wijzigingen zijn meteen zichtbaar voor de organisator.</p>
+    <div class="rij">
+      <div><label>Naam</label><input id="bt-naam" value="${h(t.naam||'')}"></div>
+      <div><label>Datum</label><input id="bt-datum" type="date" value="${t.datum||''}"></div>
+    </div>
+    <div class="rij">
+      <div><label>Locatie</label><input id="bt-locatie" value="${h(t.locatie||'')}"></div>
+      <div><label>Provincie</label><select id="bt-prov"><option value="">\u2014</option>${PROVINCIES.map(p=>`<option ${p===t.provincie?'selected':''}>${p}</option>`).join('')}</select></div>
+    </div>
+    <div class="rij">
+      <div><label>Contact e-mail</label><input id="bt-email" value="${h(t.contact_email||'')}"></div>
+      <div><label>Mededeling (betaalref)</label><input id="bt-ref" value="${h(t.betaalref||'')}"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-o" id="bt-annuleer">Annuleren</button>
+      <button class="btn btn-p" id="bt-ok">Opslaan</button>
+    </div>
+  </div>`;
+  document.body.appendChild(scherm);
+  const sluit = () => scherm.remove();
+  scherm.querySelector('#bt-annuleer').onclick = sluit;
+  scherm.onclick = e => { if (e.target === scherm) sluit(); };
+  scherm.querySelector('#bt-ok').onclick = async () => {
+    const v = id2 => scherm.querySelector('#' + id2).value.trim();
+    const { error } = await sb.from('toernooien').update({
+      naam: v('bt-naam'), datum: v('bt-datum') || null, locatie: v('bt-locatie') || null,
+      provincie: scherm.querySelector('#bt-prov').value || null,
+      contact_email: v('bt-email') || null, betaalref: v('bt-ref') || null,
+    }).eq('id', id);
+    if (error) return fout(error);
+    toast('Toernooi bijgewerkt \u2713');
+    sluit(); render();
+  };
+};
+
+app.bewerkZoekertje = async (id) => {
+  const { data: z, error: e1 } = await sb.from('zoekertjes').select('*').eq('id', id).single();
+  if (e1 || !z) return fout(e1 || new Error('Niet gevonden'));
+  const scherm = document.createElement('div');
+  scherm.className = 'modal-scherm';
+  scherm.innerHTML = `<div class="modal-kaart" style="max-width:520px">
+    <h3>Zoekertje bewerken</h3>
+    <p class="sub">Beheerdersaanpassing.</p>
+    <div class="rij">
+      <div><label>Clubnaam</label><input id="bz-club" value="${h(z.club_naam||'')}"></div>
+      <div><label>Categorie</label><select id="bz-cat">${CATS.map(c=>`<option ${c===z.categorie?'selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="rij">
+      <div><label>Niveau</label><select id="bz-niv">${NIVEAUS.map(n=>`<option ${n===z.niveau?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div><label>Niveaucode</label><select id="bz-code"><option value="">\u2014</option>${NIVEAU_CODES.map(n=>`<option ${n===z.niveau_code?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div><label>Datum</label><input id="bz-datum" type="date" value="${z.datum||''}"></div>
+    </div>
+    <div class="rij">
+      <div><label>Gemeente</label><input id="bz-gemeente" value="${h(z.gemeente||'')}"></div>
+      <div><label>Provincie</label><select id="bz-prov"><option value="">\u2014</option>${PROVINCIES.map(p=>`<option ${p===z.provincie?'selected':''}>${p}</option>`).join('')}</select></div>
+    </div>
+    <div class="rij">
+      <div><label>Contact e-mail</label><input id="bz-email" value="${h(z.contact_email||'')}"></div>
+      <div><label>GSM</label><input id="bz-tel" value="${h(z.contact_telefoon||'')}"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-o" id="bz-annuleer">Annuleren</button>
+      <button class="btn btn-p" id="bz-ok">Opslaan</button>
+    </div>
+  </div>`;
+  document.body.appendChild(scherm);
+  const sluit = () => scherm.remove();
+  scherm.querySelector('#bz-annuleer').onclick = sluit;
+  scherm.onclick = e => { if (e.target === scherm) sluit(); };
+  scherm.querySelector('#bz-ok').onclick = async () => {
+    const v = id2 => scherm.querySelector('#' + id2).value.trim();
+    const { error } = await sb.from('zoekertjes').update({
+      club_naam: v('bz-club'), categorie: scherm.querySelector('#bz-cat').value,
+      niveau: scherm.querySelector('#bz-niv').value, niveau_code: scherm.querySelector('#bz-code').value || null,
+      datum: v('bz-datum') || null, gemeente: v('bz-gemeente') || null,
+      provincie: scherm.querySelector('#bz-prov').value || null,
+      contact_email: v('bz-email') || null, contact_telefoon: v('bz-tel') || null,
+    }).eq('id', id);
+    if (error) return fout(error);
+    toast('Zoekertje bijgewerkt \u2713');
+    sluit(); render();
+  };
+};
+
+app.bewerkClub = async (id) => {
+  const { data: c, error: e1 } = await sb.from('clubs').select('*').eq('id', id).single();
+  if (e1 || !c) return fout(e1 || new Error('Niet gevonden'));
+  const scherm = document.createElement('div');
+  scherm.className = 'modal-scherm';
+  scherm.innerHTML = `<div class="modal-kaart" style="max-width:460px">
+    <h3>Club bewerken</h3>
+    <div class="rij">
+      <div><label>Clubnaam</label><input id="bc-naam" value="${h(c.club_naam||'')}"></div>
+      <div><label>E-mail</label><input id="bc-email" value="${h(c.email||'')}"></div>
+    </div>
+    <div class="rij">
+      <div><label>Contactpersoon</label><input id="bc-contact" value="${h(c.contact_naam||'')}"></div>
+      <div><label>Telefoon</label><input id="bc-tel" value="${h(c.telefoon||'')}"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-o" id="bc-annuleer">Annuleren</button>
+      <button class="btn btn-p" id="bc-ok">Opslaan</button>
+    </div>
+  </div>`;
+  document.body.appendChild(scherm);
+  const sluit = () => scherm.remove();
+  scherm.querySelector('#bc-annuleer').onclick = sluit;
+  scherm.onclick = e => { if (e.target === scherm) sluit(); };
+  scherm.querySelector('#bc-ok').onclick = async () => {
+    const v = id2 => scherm.querySelector('#' + id2).value.trim();
+    const { error } = await sb.from('clubs').update({
+      club_naam: v('bc-naam'), email: v('bc-email') || null,
+      contact_naam: v('bc-contact') || null, telefoon: v('bc-tel') || null,
+    }).eq('id', id);
+    if (error) return fout(error);
+    toast('Club bijgewerkt \u2713');
+    sluit(); render();
+  };
 };
 
 
@@ -1966,7 +2094,7 @@ app.verwijderSponsor = async (id) => {
 /* ============================================================
    OEFENWEDSTRIJDEN (zoekertjes) — gratis
    ============================================================ */
-const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U19','U21'];
+const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U19','U21','Dames','Elite'];
 const bouwVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 99; return n <= 9 ? 'ob' : n <= 13 ? 'mb' : 'bb'; };
 
 const GEM_PROV = {
@@ -2191,7 +2319,7 @@ function vZoekPlaatsen(){
         <div><label>Gemeente *</label><input id="z-gemeente" onblur="vulProvincieIn('z-gemeente','z-prov')"></div>
       </div>
       <div class="rij">
-        <div><label>Provincie</label><select id="z-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+        <div><label>Provincie</label><select id="z-prov"><option value="">—</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
         <div><label>Categorie *</label><select id="z-cat">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
         <div><label>Niveau *</label><select id="z-niv">${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
         <div><label>Niveaucode</label><select id="z-code"><option value="">—</option>${NIVEAU_CODES.map(n=>`<option>${n}</option>`).join('')}</select></div>
@@ -2323,7 +2451,7 @@ async function vKalender(){
       <div class="rij">
         <div><label>Datum *</label><input id="k-datum" type="date"></div>
         <div><label>Gemeente *</label><input id="k-gemeente" onblur="vulProvincieIn('k-gemeente','k-prov')"></div>
-        <div><label>Provincie</label><select id="k-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+        <div><label>Provincie</label><select id="k-prov"><option value="">—</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       </div>
       <div class="rij">
         <div style="flex:1 1 100%"><label>Categorieën</label>
