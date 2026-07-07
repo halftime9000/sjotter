@@ -244,6 +244,7 @@ function fout(e){ console.error(e); toast('⚠ ' + (e?.message || 'Er ging iets 
 const rand = n => Array.from({length:n},()=> 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*31)]).join('');
 const slugify = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 function tijdPlus(t, min){ const [u,m] = t.split(':').map(Number); const tot = u*60+m+min; return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0'); }
+function dagDatum(basis, dag){ if (!basis) return null; const d = new Date(basis + 'T00:00'); d.setDate(d.getDate() + (dag - 1)); return d.toISOString().slice(0,10); }
 function datumNL(d){ if(!d) return '—'; return new Date(d+'T00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
 function shuffle(a){ const x=[...a]; for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]];} return x; }
 function teamNaam(t){ return t ? h(t.club_naam + (t.team_naam ? ' ' + t.team_naam : '')) : '—'; }
@@ -584,7 +585,8 @@ function tabInstellingen(el, d){
     <h3>Algemeen</h3>
     <div class="rij">
       <div><label>Naam</label><input id="i-naam" value="${h(t.naam)}"></div>
-      <div><label>Datum</label><input id="i-datum" type="date" value="${t.datum||''}"></div>
+      <div><label>Startdatum</label><input id="i-datum" type="date" value="${t.datum||''}"></div>
+      <div><label>Einddatum (optioneel, meerdaags toernooi)</label><input id="i-einddatum" type="date" value="${t.einddatum||''}"></div>
     </div>
     <div class="rij">
       <div><label>Locatie</label><input id="i-locatie" value="${h(t.locatie||'')}"></div>
@@ -664,6 +666,7 @@ app.bewaarInstellingen = async (id) => {
   const upd = {
     naam: $('#i-naam').value.trim(), datum: $('#i-datum').value || null,
     locatie: $('#i-locatie').value.trim(), provincie: $('#i-prov').value || null, contact_email: $('#i-email').value.trim(),
+    einddatum: $('#i-einddatum').value || null,
     beschrijving: $('#i-beschrijving').value.trim(),
     aantal_velden: +$('#i-velden').value || 1, wedstrijdduur: +$('#i-duur').value || 15,
     pauze: +$('#i-pauze').value || 0, starttijd: $('#i-start').value || '09:00',
@@ -704,6 +707,7 @@ function tabCategorieen(el, d){
       <td><strong>${h(c.naam)}</strong></td>
       <td class="num">${n}/${c.max_teams}</td>
       <td class="num">${c.aantal_poules}</td>
+      ${d.t.einddatum ? `<td class="num">${c.dag||1}</td>` : ''}
       <td style="text-align:right"><button class="btn btn-r btn-sm" onclick="app.verwijderCat('${c.id}','${d.t.id}')">Verwijder</button></td>
     </tr>`;
   }).join('');
@@ -711,7 +715,7 @@ function tabCategorieen(el, d){
   <div class="kaart">
     <h3>Leeftijdscategorieën</h3>
     <p class="sub">Bv. U8, U9, U10… Ploegen schrijven zich per categorie in.</p>
-    ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
+    ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th>${d.t.einddatum ? '<th class="num">Dag</th>' : ''}<th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
     <hr class="krijt">
     <div class="rij">
       <div><label>Categorie</label><select id="c-naam">${Array.from({length:14},(_,i)=>`<option>U${i+6}</option>`).join('')}<option>Dames</option><option>Elite</option></select></div>
@@ -724,6 +728,7 @@ function tabCategorieen(el, d){
       </select></div>
       <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="32" value="8"></div>
       <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="8" value="2"></div>
+      ${d.t.einddatum ? `<div><label>Speeldag</label><input id="c-dag" type="number" min="1" max="10" value="1"></div>` : ''}
       <div style="align-self:flex-end"><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%">+ Toevoegen</button></div>
     </div>
     <p class="sub" style="margin-top:8px">Zo kan je bijvoorbeeld zowel \u201cU15 REG\u201d als \u201cU15 IP\u201d aanmaken als twee aparte categorie\u00ebn.</p>
@@ -737,6 +742,7 @@ app.nieuweCat = async (tid) => {
   const naam = niveau ? `${basis} ${niveau}` : basis;
   const { error } = await sb.from('categorieen').insert({
     toernooi_id: tid, naam, max_teams: +$('#c-max').value || 8, aantal_poules: +$('#c-poules').value || 1,
+    dag: $('#c-dag') ? (+$('#c-dag').value || 1) : 1,
     volgorde: (parseInt(basis.replace(/\D/g,'')) || 999) * 10 + (niveau === 'REG' ? 1 : niveau === 'PROV' ? 2 : niveau === 'IP' ? 3 : 0)
   });
   if (error) return fout(error);
@@ -883,49 +889,51 @@ function roundRobin(ids){
 
 function bouwSchema(d){
   const { t } = d;
-  // verzamel alle poulewedstrijden
-  let pool = [];
-  for (const c of d.cats) {
-    const letters = [...new Set(d.teams.filter(x => x.categorie_id === c.id && x.poule).map(x => x.poule))].sort();
-    for (const L of letters) {
-      const ids = d.teams.filter(x => x.categorie_id === c.id && x.poule === L).map(x => x.id);
-      if (ids.length < 2) continue;
-      roundRobin(ids).forEach((rd, ri) => rd.forEach(([a, b]) => pool.push({ cat: c.id, poule: L, a, b, ronde: ri })));
-    }
-  }
-  pool.sort((x, y) => x.ronde - y.ronde);
-  // greedy: per tijdslot max #velden wedstrijden, geen ploeg 2x in zelfde slot, liefst geen ploeg 2 slots na elkaar
-  const slots = [];
-  let vorige = new Set();
-  let guard = 0;
-  while (pool.length && guard++ < 2000) {
-    const slot = [], bezet = new Set();
-    for (const rustEerst of [true, false]) {
-      for (let i = 0; i < pool.length && slot.length < t.aantal_velden; i++) {
-        const m = pool[i];
-        if (bezet.has(m.a) || bezet.has(m.b)) continue;
-        if (rustEerst && (vorige.has(m.a) || vorige.has(m.b))) continue;
-        slot.push(m); bezet.add(m.a); bezet.add(m.b);
-        pool.splice(i, 1); i--;
+  const alleDagen = [...new Set(d.cats.map(c => c.dag || 1))].sort((a,b) => a-b);
+  const rijen = [];
+  for (const dag of alleDagen) {
+    let pool = [];
+    for (const c of d.cats.filter(c => (c.dag||1) === dag)) {
+      const letters = [...new Set(d.teams.filter(x => x.categorie_id === c.id && x.poule).map(x => x.poule))].sort();
+      for (const L of letters) {
+        const ids = d.teams.filter(x => x.categorie_id === c.id && x.poule === L).map(x => x.id);
+        if (ids.length < 2) continue;
+        roundRobin(ids).forEach((rd, ri) => rd.forEach(([a, b]) => pool.push({ cat: c.id, poule: L, a, b, ronde: ri })));
       }
     }
-    slots.push(slot);
-    vorige = bezet;
+    if (!pool.length) continue;
+    pool.sort((x, y) => x.ronde - y.ronde);
+    const slots = [];
+    let vorige = new Set();
+    let guard = 0;
+    while (pool.length && guard++ < 2000) {
+      const slot = [], bezet = new Set();
+      for (const rustEerst of [true, false]) {
+        for (let i = 0; i < pool.length && slot.length < t.aantal_velden; i++) {
+          const m = pool[i];
+          if (bezet.has(m.a) || bezet.has(m.b)) continue;
+          if (rustEerst && (vorige.has(m.a) || vorige.has(m.b))) continue;
+          slot.push(m); bezet.add(m.a); bezet.add(m.b);
+          pool.splice(i, 1); i--;
+        }
+      }
+      slots.push(slot);
+      vorige = bezet;
+    }
+    const slotDuur = t.wedstrijdduur + t.pauze;
+    let cursor = t.starttijd;
+    let pauzeGedaan = !(t.pauze_start && t.pauze_duur);
+    const datumDag = dagDatum(t.datum, dag);
+    slots.forEach((slot, si) => {
+      if (!pauzeGedaan && cursor >= t.pauze_start) { cursor = tijdPlus(cursor, t.pauze_duur); pauzeGedaan = true; }
+      slot.forEach((m, vi) => rijen.push({
+        toernooi_id: t.id, categorie_id: m.cat, fase: 'poule', poule: m.poule,
+        team_a: m.a, team_b: m.b, veld: vi + 1,
+        datum: datumDag, starttijd: cursor, volgorde: dag * 100000 + si * 100 + vi
+      }));
+      cursor = tijdPlus(cursor, slotDuur);
+    });
   }
-  // omzetten naar rijen (met optionele middagpauze)
-  const slotDuur = t.wedstrijdduur + t.pauze;
-  const rijen = [];
-  let cursor = t.starttijd;
-  let pauzeGedaan = !(t.pauze_start && t.pauze_duur);
-  slots.forEach((slot, si) => {
-    if (!pauzeGedaan && cursor >= t.pauze_start) { cursor = tijdPlus(cursor, t.pauze_duur); pauzeGedaan = true; }
-    slot.forEach((m, vi) => rijen.push({
-      toernooi_id: t.id, categorie_id: m.cat, fase: 'poule', poule: m.poule,
-      team_a: m.a, team_b: m.b, veld: vi + 1,
-      starttijd: cursor, volgorde: si * 100 + vi
-    }));
-    cursor = tijdPlus(cursor, slotDuur);
-  });
   return rijen;
 }
 
@@ -936,15 +944,15 @@ function tabSchema(el, d){
   const zonderPoule = d.teams.filter(x => !x.poule).length;
   const eind = d.wed.length ? d.wed.reduce((m,w)=> w.starttijd>m?w.starttijd:m, '00:00') : null;
 
-  const perTijd = {};
-  d.wed.forEach(w => (perTijd[w.starttijd] ||= []).push(w));
-  const tijden = Object.keys(perTijd).sort();
+  const perDag = {};
+  d.wed.forEach(w => (perDag[w.datum || t.datum || '?'] ||= []).push(w));
+  const dagen = Object.keys(perDag).sort();
 
   el.innerHTML = `
   <div class="kaart">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
       <div><h3>Speelschema</h3>
-      <p class="sub">${t.aantal_velden} veld(en) · ${t.wedstrijdduur} min + ${t.pauze} min pauze · start ${t.starttijd}${eind ? ' · laatste aftrap ' + eind : ''}</p></div>
+      <p class="sub">${t.aantal_velden} veld(en) · ${t.wedstrijdduur} min + ${t.pauze} min pauze · start ${t.starttijd}${eind ? ' · laatste aftrap ' + eind : ''}${t.einddatum ? ' · meerdaags toernooi' : ''}</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-p btn-sm" onclick="app.genereerSchema()">${d.wed.length ? '↻ Schema opnieuw genereren' : '⚙ Schema genereren'}</button>
         <select id="fin-modus" style="width:auto;padding:7px 10px;font-size:13px">
@@ -958,22 +966,28 @@ function tabSchema(el, d){
       </div>
     </div>
     ${zonderPoule ? `<div class="melding m-fout">${zonderPoule} ploeg(en) zitten nog niet in een poule — voer eerst de loting uit.</div>` : ''}
-    ${!d.wed.length ? '<div class="leeg">Nog geen schema. Stel velden & tijden in bij Instellingen, doe de loting en genereer.</div>' : `
-    <table class="w-tabel" style="margin-top:14px"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th>Scheids</th><th style="text-align:center">Uitslag</th><th></th></tr>
-      ${tijden.map((tijd, ti) => (t.pauze_start && t.pauze_duur && ti > 0 && tijden[ti-1] < t.pauze_start && tijd >= t.pauze_start ? `<tr><td colspan="8" style="background:var(--papier);text-align:center;font-weight:700;color:var(--grijs);padding:10px">☕ Pauze — ${t.pauze_duur} minuten</td></tr>` : '') + perTijd[tijd].sort((a,b)=>a.veld-b.veld).map(w => `<tr>
-        <td class="c-tijd"><span class="tijd">${w.starttijd}</span></td>
-        <td class="c-veld"><span class="veldtag">Veld ${w.veld||'—'}</span></td>
-        <td class="c-cat">${h(catMap[w.categorie_id]?.naam||'')}</td>
-        <td class="c-fase"><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : 'Poule '+h(w.poule||'')}</span></td>
-        <td class="c-wed">${teamHtml(teamMap[w.team_a])} — ${teamHtml(teamMap[w.team_b])}</td>
-        <td class="c-sr">${d.scheids.length ? `<select onchange="app.zetScheids('${w.id}', this.value)" style="width:auto;padding:4px 8px;font-size:12.5px">
-          <option value="">— scheids —</option>
-          ${d.scheids.map(s => `<option value="${s.id}" ${w.scheidsrechter_id===s.id?'selected':''}>${h(s.naam)}</option>`).join('')}
-        </select>` : ''}</td>
-        <td class="score c-score" style="text-align:center">${w.score_a==null?'· - ·':w.score_a+' - '+w.score_b}</td>
-        <td>${w.fase==='finale' ? `<button class="btn btn-r btn-sm" onclick="app.verwijderWedstrijd('${w.id}')">✕</button>` : ''}</td>
-      </tr>`).join('')).join('')}
-    </table>`}
+    ${!d.wed.length ? '<div class="leeg">Nog geen schema. Stel velden & tijden in bij Instellingen, doe de loting en genereer.</div>' : dagen.map(dg => {
+      const wedDag = perDag[dg];
+      const perTijd = {};
+      wedDag.forEach(w => (perTijd[w.starttijd] ||= []).push(w));
+      const tijden = Object.keys(perTijd).sort();
+      return `${dagen.length > 1 ? `<h3 style="margin-top:20px;font-size:16px">${datumNL(dg)}</h3>` : ''}
+      <table class="w-tabel" style="margin-top:14px"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th>Scheids</th><th style="text-align:center">Uitslag</th><th></th></tr>
+        ${tijden.map((tijd, ti) => (t.pauze_start && t.pauze_duur && ti > 0 && tijden[ti-1] < t.pauze_start && tijd >= t.pauze_start ? `<tr><td colspan="8" style="background:var(--papier);text-align:center;font-weight:700;color:var(--grijs);padding:10px">☕ Pauze — ${t.pauze_duur} minuten</td></tr>` : '') + perTijd[tijd].sort((a,b)=>a.veld-b.veld).map(w => `<tr>
+          <td class="c-tijd"><span class="tijd">${w.starttijd}</span></td>
+          <td class="c-veld"><span class="veldtag">Veld ${w.veld||'—'}</span></td>
+          <td class="c-cat">${h(catMap[w.categorie_id]?.naam||'')}</td>
+          <td class="c-fase"><span class="badge ${w.fase==='finale'?'b-geel':'b-concept'}">${w.fase==='finale'? h(w.label||'Finale') : 'Poule '+h(w.poule||'')}</span></td>
+          <td class="c-wed">${teamHtml(teamMap[w.team_a])} — ${teamHtml(teamMap[w.team_b])}</td>
+          <td class="c-sr">${d.scheids.length ? `<select onchange="app.zetScheids('${w.id}', this.value)" style="width:auto;padding:4px 8px;font-size:12.5px">
+            <option value="">— scheids —</option>
+            ${d.scheids.map(s => `<option value="${s.id}" ${w.scheidsrechter_id===s.id?'selected':''}>${h(s.naam)}</option>`).join('')}
+          </select>` : ''}</td>
+          <td class="score c-score" style="text-align:center">${w.score_a==null?'· - ·':w.score_a+' - '+w.score_b}</td>
+          <td>${w.fase==='finale' ? `<button class="btn btn-r btn-sm" onclick="app.verwijderWedstrijd('${w.id}')">✕</button>` : ''}</td>
+        </tr>`).join('')).join('')}
+      </table>`;
+    }).join('')}
     <hr class="krijt">
     <details>
       <summary style="font-weight:600;cursor:pointer;font-size:14px">+ Wedstrijd manueel toevoegen (kruisfinale, extra wedstrijd, eigen format)</summary>
@@ -981,6 +995,7 @@ function tabSchema(el, d){
         <div><label>Team A</label><select id="mw-a">${d.teams.map(x => `<option value="${x.id}">${h(catMap[x.categorie_id]?.naam||'')} — ${teamNaam(x)}</option>`).join('')}</select></div>
         <div><label>Team B</label><select id="mw-b">${d.teams.map(x => `<option value="${x.id}">${h(catMap[x.categorie_id]?.naam||'')} — ${teamNaam(x)}</option>`).join('')}</select></div>
         <div><label>Label</label><input id="mw-label" value="Finale"></div>
+        ${t.einddatum ? `<div><label>Datum</label><input id="mw-datum" type="date" value="${t.datum||''}"></div>` : ''}
         <div><label>Veld</label><input id="mw-veld" type="number" min="1" value="1"></div>
         <div><label>Starttijd</label><input id="mw-tijd" type="time"></div>
         <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.manueleWedstrijd()" style="width:100%">Toevoegen</button></div>
@@ -1001,6 +1016,7 @@ app.manueleWedstrijd = async () => {
     toernooi_id: d.t.id, categorie_id: ta.categorie_id, fase: 'finale',
     label: $('#mw-label').value.trim() || 'Finale',
     team_a: a, team_b: b, veld: +$('#mw-veld').value || 1,
+    datum: $('#mw-datum') ? ($('#mw-datum').value || d.t.datum) : d.t.datum,
     starttijd: $('#mw-tijd').value, volgorde: 200000
   });
   if (error) return fout(error);
@@ -1013,10 +1029,10 @@ app.exportCsv = () => {
   const catMap = Object.fromEntries(d.cats.map(x => [x.id, x]));
   const srMap = Object.fromEntries(d.scheids.map(x => [x.id, x]));
   const esc = v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-  const rijen = [['Tijd','Veld','Categorie','Fase','Team A','Team B','Stamnr A','Stamnr B','Scheidsrechter','Score A','Score B']];
-  [...d.wed].sort((a,b) => (a.starttijd||'').localeCompare(b.starttijd||'') || (a.veld||0)-(b.veld||0)).forEach(w => {
+  const rijen = [['Datum','Tijd','Veld','Categorie','Fase','Team A','Team B','Stamnr A','Stamnr B','Scheidsrechter','Score A','Score B']];
+  [...d.wed].sort((a,b) => (a.datum||'').localeCompare(b.datum||'') || (a.starttijd||'').localeCompare(b.starttijd||'') || (a.veld||0)-(b.veld||0)).forEach(w => {
     const ta = teamMap[w.team_a], tb = teamMap[w.team_b];
-    rijen.push([w.starttijd||'', w.veld||'', catMap[w.categorie_id]?.naam||'',
+    rijen.push([w.datum || d.t.datum || '', w.starttijd||'', w.veld||'', catMap[w.categorie_id]?.naam||'',
       w.fase==='finale' ? (w.label||'Finale') : 'Poule ' + (w.poule||''),
       ta ? ta.club_naam + (ta.team_naam?' '+ta.team_naam:'') : '', tb ? tb.club_naam + (tb.team_naam?' '+tb.team_naam:'') : '',
       ta?.stamnummer||'', tb?.stamnummer||'',
@@ -1121,7 +1137,7 @@ app.genereerFinales = async () => {
   const d = $('#tab-inhoud')._d;
   const modus = $('#fin-modus') ? $('#fin-modus').value : 'recht';
   const { t } = d;
-  let laatste = d.wed.reduce((m,w) => (w.starttijd||'') > m ? w.starttijd : m, t.starttijd);
+  const catMap = Object.fromEntries(d.cats.map(x => [x.id, x]));
   const slotDuur = t.wedstrijdduur + t.pauze;
   const nieuwe = [];
   const meldingen = [];
@@ -1166,14 +1182,23 @@ app.genereerFinales = async () => {
   }
 
   if (!nieuwe.length) return toast(meldingen[0] || 'Geen finales te genereren');
-  // plannen na de laatste bestaande wedstrijd; belangrijkste wedstrijd als laatste
-  nieuwe.sort((a,b) => b.volgorde - a.volgorde);
-  const perSlot = [];
-  for (const w of nieuwe) {
-    if (!perSlot.length || perSlot[perSlot.length-1].length >= t.aantal_velden) perSlot.push([]);
-    perSlot[perSlot.length-1].push(w);
+  const perDagNieuw = {};
+  nieuwe.forEach(w => { const dag = catMap[w.categorie_id]?.dag || 1; (perDagNieuw[dag] ||= []).push(w); });
+  for (const dag of Object.keys(perDagNieuw)) {
+    const groep = perDagNieuw[dag];
+    groep.sort((a,b) => b.volgorde - a.volgorde);
+    const datumDag = dagDatum(t.datum, +dag);
+    const laatsteDag = d.wed.filter(w => (w.datum || t.datum) === datumDag)
+      .reduce((m,w) => (w.starttijd||'') > m ? w.starttijd : m, t.starttijd);
+    const perSlot = [];
+    for (const w of groep) {
+      if (!perSlot.length || perSlot[perSlot.length-1].length >= t.aantal_velden) perSlot.push([]);
+      perSlot[perSlot.length-1].push(w);
+    }
+    perSlot.forEach((s, si) => s.forEach((w, vi) => {
+      w.starttijd = tijdPlus(laatsteDag, (si+1)*slotDuur); w.veld = vi+1; w.datum = datumDag;
+    }));
   }
-  perSlot.forEach((s, si) => s.forEach((w, vi) => { w.starttijd = tijdPlus(laatste, (si+1)*slotDuur); w.veld = vi+1; }));
   const { error } = await sb.from('wedstrijden').insert(nieuwe);
   if (error) return fout(error);
   toast(`${nieuwe.length} wedstrijd(en) toegevoegd 🏆`);
@@ -1407,10 +1432,16 @@ function pubProgramma(el, d){
   const catMap = Object.fromEntries(d.cats.map(x => [x.id, x]));
   const srMap = Object.fromEntries((d.scheids||[]).map(x => [x.id, x]));
   if (!d.wed.length) return el.innerHTML = `<div class="kaart"><div class="leeg">Het speelschema wordt hier gepubliceerd zodra het klaar is.</div></div>`;
-  const perTijd = {};
-  d.wed.forEach(w => (perTijd[w.starttijd] ||= []).push(w));
-  const tijden = Object.keys(perTijd).sort();
-  el.innerHTML = `<div class="kaart">
+  const perDag = {};
+  d.wed.forEach(w => (perDag[w.datum || d.t.datum || '?'] ||= []).push(w));
+  const dagen = Object.keys(perDag).sort();
+  el.innerHTML = dagen.map(dg => {
+    const wedDag = perDag[dg];
+    const perTijd = {};
+    wedDag.forEach(w => (perTijd[w.starttijd] ||= []).push(w));
+    const tijden = Object.keys(perTijd).sort();
+    return `<div class="kaart">
+    ${dagen.length > 1 ? `<h3 style="margin-bottom:10px">${datumNL(dg)}</h3>` : ''}
     <table class="w-tabel"><tr><th>Tijd</th><th>Veld</th><th>Cat.</th><th></th><th>Wedstrijd</th><th style="text-align:center">Uitslag</th></tr>
     ${tijden.map((tijd, ti) => (d.t.pauze_start && d.t.pauze_duur && ti > 0 && tijden[ti-1] < d.t.pauze_start && tijd >= d.t.pauze_start ? `<tr><td colspan="6" style="background:var(--papier);text-align:center;font-weight:700;color:var(--grijs);padding:10px">☕ Pauze — ${d.t.pauze_duur} minuten</td></tr>` : '') + perTijd[tijd].sort((a,b)=>(a.veld||0)-(b.veld||0)).map(w => `<tr>
       <td class="c-tijd"><span class="tijd">${w.starttijd||'—'}</span></td>
@@ -1422,6 +1453,7 @@ function pubProgramma(el, d){
     </tr>`).join('')).join('')}
     </table>
   </div>`;
+  }).join('');
 }
 
 function pubStanden(el, d){
@@ -1500,7 +1532,7 @@ async function vAdmin(){
   const [ts, cs, zs, ks, bzVandaag, bz7d, bzTotaal] = await Promise.all([
     sb.from('toernooien').select('*').order('created_at', { ascending: false }),
     sb.from('clubs').select('*').order('created_at', { ascending: false }),
-    sb.from('zoekertjes').select('*').order('created_at', { ascending: false }),
+    sb.rpc('zoekertjes_admin_lijst'),
     sb.from('kalender').select('*').order('datum'),
     sb.from('bezoeken').select('*', { count: 'exact', head: true }).eq('dag', vandaag2),
     sb.from('bezoeken').select('*', { count: 'exact', head: true }).gte('dag', zevenDagenTerug),
@@ -1717,7 +1749,8 @@ app.bewerkToernooi = async (id) => {
 };
 
 app.bewerkZoekertje = async (id) => {
-  const { data: z, error: e1 } = await sb.from('zoekertjes').select('*').eq('id', id).single();
+  const { data: zlijst, error: e1 } = await sb.rpc('zoekertjes_admin_lijst', { zid: id });
+  const z = zlijst && zlijst[0];
   if (e1 || !z) return fout(e1 || new Error('Niet gevonden'));
   const scherm = document.createElement('div');
   scherm.className = 'modal-scherm';
@@ -1827,6 +1860,11 @@ async function tvLaad(){
     sb.from('sponsors').select('*').eq('toernooi_id', tid).order('volgorde').order('naam'),
   ]);
   _tv.cats = cats.data || []; _tv.teams = teams.data || []; _tv.wed = wed.data || []; _tv.sponsors = sps.data || [];
+  if (_tv.t.einddatum) {
+    const vandaag = new Date().toISOString().slice(0,10);
+    const vandaagWed = _tv.wed.filter(w => (w.datum || _tv.t.datum) === vandaag);
+    if (vandaagWed.length) _tv.wed = vandaagWed;
+  }
 }
 
 function tvSlides(){
@@ -2197,7 +2235,7 @@ async function vZoekLijst(){
   </div>` + voet();
   ['z-f-cat','z-f-niv','z-f-prov','z-f-gras'].forEach(id => $('#'+id).addEventListener('change', tekenZoek));
   const vandaag = new Date().toISOString().slice(0,10);
-  const { data, error } = await sb.from('zoekertjes').select('*').eq('status','open').order('created_at', { ascending: false });
+  const { data, error } = await sb.from('zoekertjes').select('id, club_naam, gemeente, provincie, categorie, niveau, niveau_code, datum, flexibel, thuis_uit, kunstgras, opmerking, contact_voorkeur, status, created_at').eq('status','open').order('created_at', { ascending: false });
   if (error) return fout(error);
   _zoek = (data || []).filter(z => z.flexibel || !z.datum || z.datum >= vandaag);
   tekenZoek();
@@ -2316,40 +2354,58 @@ app.zoekActiePin = async (id, actie) => {
   render();
 };
 
-app.toonContact = (id) => {
+app.toonContact = async (id) => {
   const z = _zoek.find(x => x.id === id);
   if (!z) return;
+  const { data, error } = await sb.rpc('zoekertje_contact', { zid: id });
+  if (error) return fout(error);
+  const c = data && data[0];
+  if (!c || !c.email) { $('#z-c-' + id).innerHTML = '<span class="sub" style="font-size:12.5px">Contact niet beschikbaar</span>'; return; }
   $('#z-c-' + id).innerHTML = `<div style="font-size:13.5px">
-    <strong>${h(z.contact_naam)}</strong><br>
-    <a href="mailto:${h(z.contact_email)}?subject=${encodeURIComponent('Oefenwedstrijd ' + z.categorie + ' — via Sjotter')}">${h(z.contact_email)}</a>
-    ${z.contact_telefoon ? '<br>' + h(z.contact_telefoon) : ''}
+    <strong>${h(c.naam)}</strong><br>
+    <a href="mailto:${h(c.email)}?subject=${encodeURIComponent('Oefenwedstrijd ' + z.categorie + ' — via Sjotter')}">${h(c.email)}</a>
+    ${c.telefoon ? '<br>' + h(c.telefoon) : ''}
   </div>`;
 };
 
-function vZoekPlaatsen(){
+function teamRijHtml(idx){
   const chk = 'display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt)';
+  return `<div class="kaart" data-team-rij="${idx}" style="background:var(--papier);box-shadow:none;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <strong style="font-size:13.5px;color:var(--grijs);text-transform:uppercase;letter-spacing:.04em">Team ${idx+1}</strong>
+      <button type="button" class="btn btn-r btn-sm" style="padding:3px 9px" onclick="app.verwijderTeamRij(${idx})">\u2715</button>
+    </div>
+    <div class="rij">
+      <div><label>Categorie *</label><select id="z-cat-${idx}">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div><label>Niveau *</label><select id="z-niv-${idx}">${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
+      <div><label>Niveaucode</label><select id="z-code-${idx}"><option value="">\u2014</option>${NIVEAU_CODES.map(n=>`<option>${n}</option>`).join('')}</select></div>
+    </div>
+    <div class="rij">
+      <div><label>Speeldatum</label><input id="z-datum-${idx}" type="date"></div>
+      <div><label>Of flexibel</label><label style="${chk};margin:0;height:41px"><input type="checkbox" id="z-flex-${idx}" style="width:auto"> Datum in overleg</label></div>
+      <div><label>Thuis / uit</label><select id="z-tu-${idx}"><option value="beide">Beide mogelijk</option><option value="thuis">Enkel thuis</option><option value="uit">Enkel uit</option></select></div>
+    </div>
+    <label style="${chk};margin-top:14px"><input type="checkbox" id="z-gras-${idx}" style="width:auto"> Kunstgras beschikbaar (thuis)</label>
+    <label>Opmerking (optioneel)</label>
+    <textarea id="z-opm-${idx}" rows="2"></textarea>
+  </div>`;
+}
+
+let _ztVolgende = 1;
+
+function vZoekPlaatsen(){
   root().innerHTML = topbar() + `<div class="wrap" style="max-width:640px">
     <div class="kaart">
       <h3>Plaats een zoekertje</h3>
-      <p class="sub">Gratis en zonder account. Zoekertjes met een speeldatum in het verleden verdwijnen automatisch uit de lijst.</p>
+      <p class="sub">Gratis en zonder account. Heb je meerdere ploegen die een tegenstander zoeken? Voeg ze in \u00e9\u00e9n keer toe. Zoekertjes met een speeldatum in het verleden verdwijnen automatisch uit de lijst.</p>
       <div class="rij">
         <div><label>Clubnaam *</label><input id="z-club" onblur="kapitaliseer(this)"></div>
         <div><label>Gemeente *</label><input id="z-gemeente" onblur="vulProvincieIn('z-gemeente','z-prov')"></div>
+        <div><label>Provincie</label><select id="z-prov"><option value="">\u2014</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       </div>
-      <div class="rij">
-        <div><label>Provincie</label><select id="z-prov"><option value="">—</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
-        <div><label>Categorie *</label><select id="z-cat">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
-        <div><label>Niveau *</label><select id="z-niv">${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
-        <div><label>Niveaucode</label><select id="z-code"><option value="">—</option>${NIVEAU_CODES.map(n=>`<option>${n}</option>`).join('')}</select></div>
-      </div>
-      <div class="rij">
-        <div><label>Speeldatum</label><input id="z-datum" type="date"></div>
-        <div><label>Of flexibel</label><label style="${chk};margin:0;height:41px"><input type="checkbox" id="z-flex" style="width:auto"> Datum in overleg</label></div>
-        <div><label>Thuis / uit</label><select id="z-tu"><option value="beide">Beide mogelijk</option><option value="thuis">Enkel thuis</option><option value="uit">Enkel uit</option></select></div>
-      </div>
-      <label style="${chk};margin-top:14px"><input type="checkbox" id="z-gras" style="width:auto"> Kunstgras beschikbaar (thuis)</label>
-      <label>Opmerking (optioneel)</label>
-      <textarea id="z-opm" rows="2"></textarea>
+      <hr class="krijt">
+      <div id="z-teams">${teamRijHtml(0)}</div>
+      <button type="button" class="btn btn-o btn-sm" onclick="app.voegTeamToe()">+ Nog een team toevoegen</button>
       <hr class="krijt">
       <div class="rij">
         <div><label>Contactpersoon *</label><input id="z-cnaam"></div>
@@ -2358,68 +2414,95 @@ function vZoekPlaatsen(){
       </div>
       <label>Kies een pincode (4 cijfers) *</label>
       <input id="z-pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" style="max-width:120px;font-family:'IBM Plex Mono',monospace;font-size:18px;letter-spacing:.2em;text-align:center">
-      <p class="sub" style="margin-top:4px">Hiermee kan je dit zoekertje later meteen beheren vanaf de lijst — ook zonder je e-mail te checken.</p>
+      <p class="sub" style="margin-top:4px">Hiermee beheer je al je zonet geplaatste zoekertjes meteen vanaf de lijst \u2014 ook zonder je e-mail te checken.</p>
       <label>Hoe wil je gecontacteerd worden?</label>
       <div style="display:flex;gap:18px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="radio" name="z-voorkeur" value="open" checked style="width:auto"> Toon mijn gegevens bij het zoekertje</label>
         <label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="radio" name="z-voorkeur" value="bericht" style="width:auto"> Enkel via ${CONFIG.PLATFORM}-bericht (je e-mail blijft verborgen)</label>
       </div>
       <div id="z-melding"></div>
-      <button class="btn btn-b" style="margin-top:16px" onclick="app.plaatsZoekertje()">Zoekertje plaatsen</button>
+      <button class="btn btn-b" style="margin-top:16px" onclick="app.plaatsZoekertje()">Zoekertjes plaatsen</button>
     </div>
   </div>`;
+  _ztVolgende = 1;
 }
+
+app.voegTeamToe = () => {
+  $('#z-teams').insertAdjacentHTML('beforeend', teamRijHtml(_ztVolgende));
+  _ztVolgende++;
+};
+
+app.verwijderTeamRij = (idx) => {
+  const rijen = document.querySelectorAll('[data-team-rij]');
+  if (rijen.length <= 1) return toast('Je hebt minstens \u00e9\u00e9n team nodig');
+  document.querySelector(`[data-team-rij="${idx}"]`).remove();
+};
 
 app.plaatsZoekertje = async () => {
   const v = id => $('#' + id).value.trim();
   if (!v('z-club') || !v('z-gemeente') || !v('z-cnaam') || !v('z-cemail')) return toast('Vul de verplichte velden in (*)');
   if (!/^[0-9]{4}$/.test(v('z-pin'))) return toast('Kies een pincode van precies 4 cijfers');
-  if (!v('z-datum') && !$('#z-flex').checked) return toast('Kies een speeldatum of vink "datum in overleg" aan');
-  const { data: z, error } = await sb.from('zoekertjes').insert({
-    club_naam: v('z-club'), gemeente: v('z-gemeente'), provincie: $('#z-prov').value,
-    categorie: $('#z-cat').value, niveau: $('#z-niv').value, niveau_code: $('#z-code').value || null,
-    datum: v('z-datum') || null, flexibel: $('#z-flex').checked,
-    thuis_uit: $('#z-tu').value, kunstgras: $('#z-gras').checked,
-    opmerking: v('z-opm') || null,
-    contact_naam: v('z-cnaam'), contact_email: v('z-cemail'), contact_telefoon: v('z-ctel') || null,
-    contact_voorkeur: document.querySelector('input[name="z-voorkeur"]:checked').value,
-  }).select().single();
+  const contactNaam = v('z-cnaam'), contactEmail = v('z-cemail'), contactTel = v('z-ctel') || null;
+  const rijen = [...document.querySelectorAll('[data-team-rij]')].map(el => +el.dataset.teamRij);
+  const teams = [];
+  for (const idx of rijen) {
+    if (!v(`z-datum-${idx}`) && !$(`#z-flex-${idx}`).checked) return toast(`Team ${idx+1}: kies een speeldatum of vink "datum in overleg" aan`);
+    teams.push({
+      club_naam: v('z-club'), gemeente: v('z-gemeente'), provincie: $('#z-prov').value,
+      categorie: $(`#z-cat-${idx}`).value, niveau: $(`#z-niv-${idx}`).value, niveau_code: $(`#z-code-${idx}`).value || null,
+      datum: v(`z-datum-${idx}`) || null, flexibel: $(`#z-flex-${idx}`).checked,
+      thuis_uit: $(`#z-tu-${idx}`).value, kunstgras: $(`#z-gras-${idx}`).checked,
+      opmerking: v(`z-opm-${idx}`) || null,
+      contact_naam: contactNaam, contact_email: contactEmail, contact_telefoon: contactTel,
+      contact_voorkeur: document.querySelector('input[name="z-voorkeur"]:checked').value,
+    });
+  }
+  const { data: zs, error } = await sb.from('zoekertjes').insert(teams)
+    .select('id, club_naam, gemeente, provincie, categorie, niveau, niveau_code, datum, flexibel, thuis_uit, kunstgras, opmerking, contact_voorkeur, status, created_at');
   if (error) return fout(error);
-  const code = rand(10);
-  await sb.from('zoekertje_codes').insert({ zoekertje_id: z.id, code, pincode: v('z-pin') });
-  const link = location.origin + location.pathname + '#/wedstrijden/beheer/' + z.id + '/' + code;
+  const pin = v('z-pin');
+  const links = [];
+  for (const z of zs) {
+    const code = rand(10);
+    await sb.from('zoekertje_codes').insert({ zoekertje_id: z.id, code, pincode: pin });
+    links.push({ z, link: location.origin + location.pathname + '#/wedstrijden/beheer/' + z.id + '/' + code });
+  }
   if (window.emailjs && CONFIG.EMAILJS_TEMPLATE !== 'VUL_IN') {
+    const lijst = links.map(({z, link}) => `- ${z.categorie} ${z.niveau} (${z.club_naam}): ${link}`).join('\n');
     emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
-      naar_email: z.contact_email, naar_naam: z.contact_naam,
-      zoekertje: `${z.categorie} ${z.niveau} — ${z.club_naam} (${z.gemeente})`,
+      naar_email: contactEmail, naar_naam: contactNaam,
+      zoekertje: zs.length > 1 ? `${zs.length} zoekertjes` : `${zs[0].categorie} ${zs[0].niveau}`,
       van_naam: CONFIG.PLATFORM, van_email: CONFIG.CONTACT_EMAIL,
-      bericht: `Bedankt om je zoekertje te plaatsen! Bewaar deze e-mail: met onderstaande link beheer je je zoekertje (markeren als gevonden of verwijderen).\n\nBeheerlink: ${link}`,
+      bericht: `Bedankt om je zoekertje${zs.length>1?'s':''} te plaatsen! Bewaar deze e-mail \u2014 met de link(en) hieronder beheer je ze (markeren als gevonden of verwijderen). Je pincode is ${pin}.\n\n${lijst}`,
     }).catch(e => console.error('beheerlink-mail mislukt', e));
   }
   root().innerHTML = topbar() + `<div class="wrap wrap-smal">
     <div class="kaart" style="text-align:center">
       <div style="font-size:40px;margin-bottom:6px">\u2705</div>
-      <h3>Je zoekertje staat online!</h3>
-      <p class="sub">${h(z.categorie)} ${h(z.niveau)} \u2014 ${h(z.club_naam)} (${h(z.gemeente)})</p>
+      <h3>${zs.length > 1 ? `${zs.length} zoekertjes staan online!` : 'Je zoekertje staat online!'}</h3>
+      <p class="sub">${h(zs[0].club_naam)} (${h(zs[0].gemeente)})</p>
       <hr class="krijt">
-      <p style="font-size:14px;text-align:left">Je pincode is <strong style="font-family:'IBM Plex Mono',monospace;font-size:17px">${h(v('z-pin'))}</strong> \u2014 daarmee beheer je het zo dadelijk vanaf de lijst (markeren als gevonden of verwijderen). We stuurden ook een beheerlink naar <strong>${h(z.contact_email)}</strong>.</p>
-      <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
-        <input readonly value="${h(link)}" style="flex:1;min-width:180px" onclick="this.select()">
-        <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd \u2713'))">Kopieer link</button>
-      </div>
+      <p style="font-size:14px;text-align:left">Je pincode is <strong style="font-family:'IBM Plex Mono',monospace;font-size:17px">${h(pin)}</strong> \u2014 daarmee beheer je ze zo dadelijk vanaf de lijst. We stuurden ook een e-mail naar <strong>${h(contactEmail)}</strong>.</p>
+      ${links.map(({z, link}) => `<div style="text-align:left;margin-top:12px;padding-top:10px;border-top:1px dashed var(--lijn)">
+        <strong style="font-size:13.5px">${h(z.categorie)} ${h(z.niveau)}</strong>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <input readonly value="${h(link)}" style="flex:1;min-width:160px;font-size:12.5px" onclick="this.select()">
+          <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd \u2713'))">Kopieer</button>
+        </div>
+      </div>`).join('')}
       <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap">
         <a class="btn btn-b" href="#/wedstrijden">Bekijk alle zoekertjes</a>
         <a class="btn btn-o" href="#/wedstrijden/plaatsen">Nog een zoekertje plaatsen</a>
       </div>
-      <p class="sub" style="margin-top:16px;text-align:left">⚽ Tegenstander gevonden? Gebruik je pincode of beheerlink om je zoekertje meteen te markeren als “gevonden” — zo weten andere trainers dat het niet meer vrij is.</p>
+      <p class="sub" style="margin-top:16px;text-align:left">\u26bd Tegenstander gevonden voor een van je teams? Gebruik je pincode of de bijhorende beheerlink om dat zoekertje meteen te markeren als "gevonden" \u2014 zo weten andere trainers dat het niet meer vrij is.</p>
     </div>
   </div>` + voet();
-  toast('Zoekertje geplaatst \u26bd');
+  toast(zs.length > 1 ? `${zs.length} zoekertjes geplaatst \u26bd` : 'Zoekertje geplaatst \u26bd');
 };
 
 async function vZoekBeheer(id, code){
   root().innerHTML = topbar() + `<div class="wrap wrap-smal"><div class="kaart" id="z-beheer"><div class="leeg">Laden…</div></div></div>`;
-  const { data: z } = await sb.from('zoekertjes').select('*').eq('id', id).maybeSingle();
+  const { data: z } = await sb.from('zoekertjes').select('id, club_naam, categorie, niveau, niveau_code, datum, flexibel, status').eq('id', id).maybeSingle();
   if (!z) return $('#z-beheer').innerHTML = '<div class="leeg">Zoekertje niet gevonden (mogelijk al verwijderd).</div>';
   $('#z-beheer').innerHTML = `
     <h3>Beheer zoekertje</h3>
