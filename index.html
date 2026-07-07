@@ -117,6 +117,7 @@ td.num,th.num{text-align:center;width:42px}
 .stat .l{font-size:12px;color:var(--grijs);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .iban{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;background:var(--gras-l);color:var(--groen);padding:10px 16px;border-radius:8px;display:inline-block;margin:4px 0}
 
+.sj-footer{text-align:center;padding:26px 20px;font-size:13px;color:var(--grijs);line-height:1.8}
 /* ---------- topbar pillen ---------- */
 .topbar nav a.nav-pil,.topbar nav button.nav-pil{display:inline-flex;align-items:center;border:none;border-radius:99px;padding:8px 15px;font-weight:700;font-size:13.5px;white-space:nowrap;transition:.15s;cursor:pointer}
 .topbar nav .pil-blauw{background:var(--hemel);color:#fff}
@@ -191,9 +192,13 @@ td.num,th.num{text-align:center;width:42px}
   .topbar nav a.verberg-m{display:none}
   .topbar-in{padding:0 10px;gap:6px}
   .topbar nav{gap:0}
-  .topbar nav a.nav-pil,.topbar nav button.nav-pil{padding:7px 9px;font-size:11.5px}
-  .topbar nav{gap:4px}
-  .topbar-in{padding:6px 8px;height:auto;min-height:60px;flex-wrap:wrap}
+  .topbar nav a.nav-pil,.topbar nav button.nav-pil{padding:7px 12px;font-size:12px}
+  .topbar nav{gap:6px}
+  .topbar-in{padding:8px 10px;height:auto;min-height:56px;flex-wrap:wrap}
+  .topbar nav .pil-blauw,.topbar nav .pil-wit{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff}
+  .topbar nav .pil-blauw:hover,.topbar nav .pil-wit:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.7)}
+  .topbar nav .pil-groen{box-shadow:0 2px 8px rgba(34,160,90,.35)}
+  .sj-footer{padding:16px 16px;font-size:11.5px;line-height:1.7}
   .topbar nav{flex-wrap:wrap;justify-content:flex-end}
   .logo{flex-direction:column;gap:2px;font-size:12px;letter-spacing:0}
   .logo .bal{width:16px;height:16px}
@@ -548,6 +553,9 @@ function tabInstellingen(el, d){
     <div class="rij" style="margin-top:4px">
       <div style="flex:0 0 auto;min-width:auto"><label>Clubkleur (publieke pagina & TV)</label>
         <input id="i-kleur" type="color" value="${veiligeKleur(t.kleur) || '#0D3B20'}" style="width:70px;height:42px;padding:3px;cursor:pointer"></div>
+      <div><label>Clublogo</label>
+        ${t.club_logo ? `<div style="display:flex;align-items:center;gap:10px"><img src="${h(t.club_logo)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--lijn);background:#fff"><button class="btn btn-o btn-sm" onclick="app.verwijderClublogo('${t.id}')">Verwijderen</button></div>`
+          : `<input id="i-logo" type="file" accept="image/*">`}</div>
     </div>
   </div>
   <div class="kaart">
@@ -622,9 +630,20 @@ app.bewaarInstellingen = async (id) => {
     pauze_duur: +$('#i-pduur').value || null,
     rangschikking: (window._rang || ['saldo','onderling','gescoord','tegen','gewonnen']).join(','),
   };
+  const logoFile = $('#i-logo') ? $('#i-logo').files[0] : null;
+  if (logoFile) {
+    try { upd.club_logo = await uploadLogo(logoFile); }
+    catch(e){ return fout(e); }
+  }
   const { error } = await sb.from('toernooien').update(upd).eq('id', id);
   if (error) return fout(error);
   toast('Bewaard ✓'); render();
+};
+
+app.verwijderClublogo = async (id) => {
+  const { error } = await sb.from('toernooien').update({ club_logo: null }).eq('id', id);
+  if (error) return fout(error);
+  render();
 };
 
 app.verwijderToernooi = async (id) => {
@@ -702,6 +721,7 @@ async function tabTeams(el, d){
         <div><label>Clubnaam</label><input id="t-club-${c.id}"></div>
         <div><label>Stamnummer</label><input id="t-stam-${c.id}"></div>
         <div><label>Ploegnaam (optioneel)</label><input id="t-naam-${c.id}"></div>
+        <div><label>Logo (optioneel)</label><input id="t-logo-${c.id}" type="file" accept="image/*"></div>
         <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.nieuwTeam('${d.t.id}','${c.id}')" style="width:100%">+ Ploeg toevoegen</button></div>
       </div>
     </div>`;
@@ -711,7 +731,10 @@ async function tabTeams(el, d){
 app.nieuwTeam = async (tid, cid) => {
   const club = $(`#t-club-${cid}`).value.trim();
   if (!club) return toast('Geef een clubnaam');
-  const { error } = await sb.from('teams').insert({ toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: $(`#t-stam-${cid}`).value.trim() || null, team_naam: $(`#t-naam-${cid}`).value.trim() || null });
+  let logo_url = null;
+  const f = $(`#t-logo-${cid}`).files[0];
+  if (f) { try { logo_url = await uploadLogo(f); } catch(e){ return fout(e); } }
+  const { error } = await sb.from('teams').insert({ toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: $(`#t-stam-${cid}`).value.trim() || null, team_naam: $(`#t-naam-${cid}`).value.trim() || null, logo_url });
   if (error) return fout(error);
   toast('Ploeg toegevoegd'); render();
 };
@@ -1233,6 +1256,7 @@ async function vPubliek(slug, tab, extra){
   root().innerHTML = topbar() + `
   ${kleur ? `<style>#root .hero{background:${kleur}} #root .poule-kop{background:${kleur}}</style>` : ''}
   <section class="hero" style="padding:44px 20px 50px"><div class="hero-in">
+    ${t.club_logo ? `<img src="${h(t.club_logo)}" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.3);background:#fff;margin-bottom:14px">` : ''}
     <h1 style="font-size:clamp(26px,5vw,42px)">${h(t.naam)}</h1>
     <p style="margin-bottom:0">${datumNL(t.datum)} · ${h(t.locatie||'')}</p>
   </div></section>
@@ -1875,13 +1899,7 @@ async function vZoekLijst(){
       <div><label>Niveau</label><select id="z-f-niv"><option value="">Alle</option>${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
       <div><label>Provincie</label><select id="z-f-prov"><option value="">Alle</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" id="z-f-gras" style="width:auto"> Enkel kunstgras</label></div>
-    </div>
-    <p class="sub" style="margin-top:12px;font-size:12.5px">
-      <span style="color:#2FB56A">●</span> onderbouw U6–U9 &nbsp;
-      <span style="color:#4E86E8">●</span> middenbouw U10–U13 &nbsp;
-      <span style="color:#F59E0B">●</span> bovenbouw U14–U21 &nbsp;
-      <span style="color:#3D4B42">●</span> beloften
-    </p></div>
+    </div></div>
     <div id="z-lijst"><div class="leeg">Laden…</div></div>
   </div>` + voet();
   ['z-f-cat','z-f-niv','z-f-prov','z-f-gras'].forEach(id => $('#'+id).addEventListener('change', tekenZoek));
@@ -2085,6 +2103,7 @@ async function vKalender(){
         <div><label>Categorieën (bv. U8, U10, U12)</label><input id="k-cats"></div>
         <div><label>Link (website / inschrijving)</label><input id="k-link"></div>
       </div>
+      <label>Clublogo (optioneel)</label><input id="k-logo" type="file" accept="image/*">
       <div id="k-melding"></div>
       <button class="btn btn-p" style="margin-top:16px" onclick="app.kalenderToevoegen()">Toernooi toevoegen</button>
     </div>
@@ -2092,19 +2111,22 @@ async function vKalender(){
 
   const vandaag = new Date().toISOString().slice(0,10);
   const [sj, ext] = await Promise.all([
-    sb.from('toernooien').select('naam, slug, datum, locatie').eq('status', 'gepubliceerd'),
+    sb.from('toernooien').select('naam, slug, datum, locatie, club_logo').eq('status', 'gepubliceerd'),
     sb.from('kalender').select('*').eq('status', 'goedgekeurd'),
   ]);
   const items = [];
-  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, plaats: t.locatie, cats: null, link: '#/p/' + t.slug, sjotter: true }); });
-  (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, plaats: [k.club, k.gemeente].filter(Boolean).join(' · '), cats: k.categorieen, link: k.link, sjotter: false }); });
+  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, plaats: t.locatie, cats: null, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo }); });
+  (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, plaats: [k.club, k.gemeente].filter(Boolean).join(' · '), cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
   items.sort((a,b) => a.datum.localeCompare(b.datum));
 
   $('#kal-lijst').innerHTML = items.length ? items.map(i => `
     <div class="kaart" style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap">
       <div style="display:flex;gap:16px;align-items:center;min-width:240px">
-        <div class="cat-bal" style="background:linear-gradient(155deg,var(--groen-d),#1A6438);border-radius:12px;width:auto;min-width:58px;padding:0 8px;flex-direction:column;font-size:13px;line-height:1.15">
-          <span style="font-size:19px">${+i.datum.slice(8,10)}</span>${['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][+i.datum.slice(5,7)-1]}
+        <div style="position:relative;flex-shrink:0">
+          <div class="cat-bal" style="background:linear-gradient(155deg,var(--groen-d),#1A6438);border-radius:12px;width:auto;min-width:58px;padding:0 8px;flex-direction:column;font-size:13px;line-height:1.15">
+            <span style="font-size:19px">${+i.datum.slice(8,10)}</span>${['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][+i.datum.slice(5,7)-1]}
+          </div>
+          ${i.logo ? `<img src="${h(i.logo)}" style="position:absolute;bottom:-6px;right:-6px;width:26px;height:26px;border-radius:50%;object-fit:cover;border:2px solid #fff;background:#fff">` : ''}
         </div>
         <div>
           <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h(i.naam)} ${i.sjotter ? '<span class="badge b-live">op ' + CONFIG.PLATFORM + '</span>' : ''}</h3>
@@ -2120,9 +2142,12 @@ async function vKalender(){
 app.kalenderToevoegen = async () => {
   const v = id => $('#' + id).value.trim();
   if (!v('k-naam') || !v('k-club') || !v('k-datum') || !v('k-gemeente')) return toast('Vul de verplichte velden in (*)');
+  let club_logo = null;
+  const f = $('#k-logo').files[0];
+  if (f) { try { club_logo = await uploadLogo(f); } catch(e){ return fout(e); } }
   const { error } = await sb.from('kalender').insert({
     naam: v('k-naam'), club: v('k-club'), datum: v('k-datum'), gemeente: v('k-gemeente'),
-    provincie: $('#k-prov').value, categorieen: v('k-cats') || null, link: v('k-link') || null,
+    provincie: $('#k-prov').value, categorieen: v('k-cats') || null, link: v('k-link') || null, club_logo,
   });
   if (error) return fout(error);
   $('#k-melding').innerHTML = '<div class="melding m-ok">✓ Bedankt! Je toernooi wordt kort nagekeken en verschijnt daarna in de kalender.</div>';
@@ -2184,7 +2209,7 @@ app.nieuwWachtwoord = async () => {
    PRIVACY & FOOTER
    ============================================================ */
 function voet(){
-  return `<footer style="text-align:center;padding:26px 20px;font-size:13px;color:var(--grijs)">
+  return `<footer class="sj-footer">
     © ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/toernooien">Toernooikalender</a> · <a href="#/help">Help & contact</a> · <a href="#/privacy">Privacyverklaring</a>
   </footer>`;
 }
