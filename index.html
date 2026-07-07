@@ -189,22 +189,15 @@ td.num,th.num{text-align:center;width:42px}
   .w-tabel td{padding:0}
   .w-tabel td.c-wed{flex-basis:100%;order:6;font-weight:600;font-size:14.5px}
   .w-tabel td.c-score{margin-left:auto;order:5}
-  .topbar nav a.verberg-m{display:none}
-  .topbar-in{padding:0 10px;gap:6px}
-  .topbar nav{gap:0}
-  .topbar nav a.nav-pil,.topbar nav button.nav-pil{padding:7px 12px;font-size:12px}
-  .topbar nav{gap:6px}
-  .topbar-in{padding:8px 10px;height:auto;min-height:56px;flex-wrap:wrap}
+  .topbar-in{flex-wrap:wrap;padding:10px 14px;height:auto;row-gap:8px}
+  .logo{flex:0 0 auto;font-size:16px}
+  .logo .bal{width:20px;height:20px}
+  .topbar nav{flex:1 1 100%;order:2;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+  .topbar nav a.nav-pil,.topbar nav button.nav-pil{padding:6px 12px;font-size:12px}
   .topbar nav .pil-blauw,.topbar nav .pil-wit{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff}
   .topbar nav .pil-blauw:hover,.topbar nav .pil-wit:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.7)}
   .topbar nav .pil-groen{box-shadow:0 2px 8px rgba(34,160,90,.35)}
-  .sj-footer{padding:16px 16px;font-size:11.5px;line-height:1.7}
-  .topbar-in{flex-wrap:nowrap;justify-content:space-between;min-height:52px}
-  .logo{flex-shrink:0}
-  .logo-tekst{display:none}
-  .logo .bal{width:22px;height:22px}
-  .topbar nav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;justify-content:flex-end;max-width:78%;scrollbar-width:none}
-  .topbar nav::-webkit-scrollbar{display:none}
+  .sj-footer{padding:14px 16px;font-size:11.5px;line-height:1.6}
   .kaart{padding:16px}
   td,th{padding:7px 6px;font-size:13px}
 }
@@ -2211,9 +2204,7 @@ app.nieuwWachtwoord = async () => {
    PRIVACY & FOOTER
    ============================================================ */
 function voet(){
-  return `<footer class="sj-footer">
-    © ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/toernooien">Toernooikalender</a> · <a href="#/help">Help & contact</a> · <a href="#/privacy">Privacyverklaring</a>
-  </footer>`;
+  return `<footer class="sj-footer">© ${new Date().getFullYear()} ${CONFIG.PLATFORM} · <a href="#/help">Help & contact</a> · <a href="#/privacy">Privacy</a></footer>`;
 }
 
 function vHelp(){
