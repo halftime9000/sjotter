@@ -300,7 +300,10 @@ async function render(){
   const hash = location.hash.replace(/^#\/?/, '');
   const p = hash.split('/');
   window.scrollTo(0,0);
-  sb.from('bezoeken').insert({ pad: '/' + hash }).then(()=>{});
+  if (!localStorage.getItem('sjotter_vid')) localStorage.setItem('sjotter_vid', rand(16));
+  const _vid = localStorage.getItem('sjotter_vid');
+  sb.from('bezoeken').insert({ pad: '/' + hash, bezoeker_id: _vid }).then(()=>{});
+
   try {
     if (p[0] === 'login') return vAuth('login');
     if (p[0] === 'wachtwoord') return vWachtwoordVergeten();
@@ -1529,7 +1532,7 @@ async function vAdmin(){
   root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
   const vandaag2 = new Date().toISOString().slice(0,10);
   const zevenDagenTerug = new Date(Date.now() - 7*86400000).toISOString().slice(0,10);
-  const [ts, cs, zs, ks, bzVandaag, bz7d, bzTotaal] = await Promise.all([
+  const [ts, cs, zs, ks, bzVandaag, bz7d, bzTotaal, uvVandaag, uv7d, uvTotaal] = await Promise.all([
     sb.from('toernooien').select('*').order('created_at', { ascending: false }),
     sb.from('clubs').select('*').order('created_at', { ascending: false }),
     sb.rpc('zoekertjes_admin_lijst'),
@@ -1537,7 +1540,11 @@ async function vAdmin(){
     sb.from('bezoeken').select('*', { count: 'exact', head: true }).eq('dag', vandaag2),
     sb.from('bezoeken').select('*', { count: 'exact', head: true }).gte('dag', zevenDagenTerug),
     sb.from('bezoeken').select('*', { count: 'exact', head: true }),
+    sb.from('bezoeken').select('bezoeker_id').eq('dag', vandaag2).not('bezoeker_id','is',null),
+    sb.from('bezoeken').select('bezoeker_id').gte('dag', zevenDagenTerug).not('bezoeker_id','is',null),
+    sb.from('bezoeken').select('bezoeker_id').not('bezoeker_id','is',null),
   ]);
+  const uniek = r => new Set((r.data||[]).map(x => x.bezoeker_id)).size;
   if (ts.error) return fout(ts.error);
   const clubMap = Object.fromEntries((cs.data||[]).map(c => [c.id, c]));
   const teBetalen = (ts.data||[]).filter(t => !t.betaald).length;
@@ -1552,9 +1559,14 @@ async function vAdmin(){
       <div class="stat"><div class="n">€ ${(ts.data||[]).filter(t=>t.betaald).length * CONFIG.PRIJS}</div><div class="l">Omzet</div></div>
     </div>
     <div class="stat-rij" style="margin-top:4px">
-      <div class="stat"><div class="n">${bzVandaag.count||0}</div><div class="l">Bezoeken vandaag</div></div>
-      <div class="stat"><div class="n">${bz7d.count||0}</div><div class="l">Bezoeken laatste 7 dagen</div></div>
-      <div class="stat"><div class="n">${bzTotaal.count||0}</div><div class="l">Bezoeken totaal</div></div>
+      <div class="stat"><div class="n">${bzVandaag.count||0}</div><div class="l">Pageviews vandaag</div></div>
+      <div class="stat"><div class="n">${bz7d.count||0}</div><div class="l">Pageviews (7 dagen)</div></div>
+      <div class="stat"><div class="n">${bzTotaal.count||0}</div><div class="l">Pageviews totaal</div></div>
+    </div>
+    <div class="stat-rij" style="margin-top:4px">
+      <div class="stat"><div class="n" style="color:var(--gras)">${uniek(uvVandaag)}</div><div class="l">Unieke bezoekers vandaag</div></div>
+      <div class="stat"><div class="n" style="color:var(--gras)">${uniek(uv7d)}</div><div class="l">Unieke bezoekers (7 dagen)</div></div>
+      <div class="stat"><div class="n" style="color:var(--gras)">${uniek(uvTotaal)}</div><div class="l">Unieke bezoekers totaal</div></div>
     </div>
 
     <div class="kaart" style="margin-top:16px">
@@ -2261,8 +2273,6 @@ function tekenZoek(){
             <span class="badge b-live">${niveauAfk(z)}</span>
             <span class="badge b-concept">${h(formaatVoor(z.categorie))}</span>
             ${z.kunstgras ? '<span class="badge b-geel">Kunstgras</span>' : ''}
-            <button class="btn btn-sm" style="padding:3px 11px;font-size:12px;background:var(--gras);color:#fff;font-weight:800;border:none" onclick="app.zoekActiePin('${z.id}','gevonden')" title="Markeer als gevonden">✓ Gevonden</button>
-            <button class="btn btn-sm" style="padding:3px 9px;font-size:13px;background:var(--rood-l);color:var(--rood);font-weight:800;border:none;line-height:1" onclick="app.zoekActiePin('${z.id}','verwijder')" title="Verwijderen">✕</button>
           </div>
           <h3>${h(z.club_naam)}</h3>
           <p style="display:flex;gap:8px 10px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:14px">
@@ -2309,7 +2319,12 @@ app.stuurBericht = async (id) => {
       van_email: email,
       bericht: tekst,
     });
-    $('#z-c-' + id).innerHTML = `<div class="melding m-ok" style="margin:0">✓ Bericht verzonden! ${h(z.contact_naam)} antwoordt je rechtstreeks via e-mail.</div>`;
+    $('#z-c-' + id).innerHTML = `<div class="melding m-ok" style="margin:0;margin-bottom:8px">✓ Bericht verzonden! ${h(z.contact_naam)} antwoordt je rechtstreeks via e-mail.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:12px;color:var(--grijs)">Ben jij de plaatser?</span>
+      <button class="btn btn-o btn-sm" style="font-size:12px;font-weight:700;color:var(--groen);padding:3px 10px" onclick="app.zoekActiePin('${id}','gevonden')">&#10003; Gevonden</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:3px 8px;background:var(--rood-l);color:var(--rood);font-weight:700;border:none" onclick="app.zoekActiePin('${id}','verwijder')">&#10005; Verwijder</button>
+    </div>`;
     toast('Bericht verzonden ✉');
   } catch(e) { console.error(e); toast('Verzenden mislukt — probeer later opnieuw'); }
 };
@@ -2339,10 +2354,12 @@ app.herstelZoekertjes = async () => {
 
 app.zoekActiePin = async (id, actie) => {
   const pin = await vraagInvoer({
-    titel: actie === 'gevonden' ? 'Markeer als gevonden' : 'Zoekertje verwijderen',
-    uitleg: 'Vul de pincode in die je koos bij het plaatsen van dit zoekertje.',
-    label: 'Pincode',
-    knop: actie === 'gevonden' ? 'Markeren' : 'Verwijderen',
+    titel: actie === 'gevonden' ? 'Tegenstander gevonden!' : 'Zoekertje verwijderen',
+    uitleg: actie === 'gevonden'
+      ? 'Top! Vul je pincode in om je zoekertje als “Gevonden” te markeren. Het verdwijnt dan uit de lijst, zodat andere clubs weten dat je niet meer beschikbaar bent.'
+      : 'Vul je pincode in om je zoekertje definitief te verwijderen.',
+    label: 'Jouw pincode (4 cijfers)',
+    knop: actie === 'gevonden' ? '✓ Markeer als gevonden' : '✕ Verwijderen',
   });
   if (!pin) return;
   const { data, error } = await sb.rpc('zoekertje_beheer_pin', { zid: id, pin, actie });
@@ -2364,6 +2381,11 @@ app.toonContact = async (id) => {
     <strong>${h(c.naam)}</strong><br>
     <a href="mailto:${h(c.email)}?subject=${encodeURIComponent('Oefenwedstrijd ' + z.categorie + ' — via Sjotter')}">${h(c.email)}</a>
     ${c.telefoon ? '<br>' + h(c.telefoon) : ''}
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--lijn);display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:12px;color:var(--grijs)">Ben jij de plaatser?</span>
+    <button class="btn btn-o btn-sm" style="font-size:12px;font-weight:700;color:var(--groen);padding:3px 10px" onclick="app.zoekActiePin('${id}','gevonden')">&#10003; Gevonden</button>
+    <button class="btn btn-sm" style="font-size:12px;padding:3px 8px;background:var(--rood-l);color:var(--rood);font-weight:700;border:none" onclick="app.zoekActiePin('${id}','verwijder')">&#10005; Verwijder</button>
+  </div>
   </div>`;
 };
 
