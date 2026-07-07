@@ -220,7 +220,7 @@ const CONFIG = {
   SUPABASE_ANON_KEY: 'sb_publishable_wLF8ZNLFbiWM8YGrEnzjXQ_Aon8llxh',
   SUPER_ADMIN_UID: '95fca7a8-1e59-4158-9414-780704d96fe3',
   PLATFORM: 'Sjotter',
-  PRIJS: 25,
+  PRIJS: 29,
   IBAN: 'BE00 0000 0000 0000',
   BEGUNSTIGDE: 'Sjotter',
   CONTACT_EMAIL: 'sjotter.be@gmail.com',
@@ -342,7 +342,8 @@ function vLanding(){
   root().innerHTML = topbar() + `
   <div class="split">
     <section class="paneel paneel-t">
-      <div class="tag">Voor clubs en organisatoren <span class="badge b-beta" style="vertical-align:middle;font-size:10px;margin-left:4px">Bèta</span></div>
+      <span class="badge b-beta" style="position:absolute;top:22px;right:26px;z-index:2">Bèta</span>
+      <div class="tag">Voor clubs en organisatoren</div>
       <h2>Organiseer je jeugdtoernooi</h2>
       <p class="lead">Van online inschrijvingen tot de eindstand \u2014 alles op \u00e9\u00e9n plek, klaar in enkele minuten.</p>
       <ul>
@@ -704,20 +705,29 @@ function tabCategorieen(el, d){
     ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
     <hr class="krijt">
     <div class="rij">
-      <div><label>Categorie</label><select id="c-naam">${Array.from({length:14},(_,i)=>`<option>U${i+6}</option>`).join('')}</select></div>
+      <div><label>Categorie</label><select id="c-naam">${Array.from({length:14},(_,i)=>`<option>U${i+6}</option>`).join('')}<option>Dames</option></select></div>
+      <div><label>Niveau (optioneel)</label><select id="c-niveau">
+        <option value="">\u2014</option>
+        <option value="REG">REG (regionaal)</option>
+        <option value="PROV">PROV (provinciaal)</option>
+        <option value="IP">IP (interprovinciaal)</option>
+      </select></div>
       <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="32" value="8"></div>
       <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="8" value="2"></div>
       <div style="align-self:flex-end"><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%">+ Toevoegen</button></div>
     </div>
+    <p class="sub" style="margin-top:8px">Zo kan je bijvoorbeeld zowel \u201cU15 REG\u201d als \u201cU15 IP\u201d aanmaken als twee aparte categorie\u00ebn.</p>
   </div>`;
 }
 
 app.nieuweCat = async (tid) => {
-  const naam = $('#c-naam').value;
-  if (!naam) return toast('Kies een categorie');
+  const basis = $('#c-naam').value;
+  if (!basis) return toast('Kies een categorie');
+  const niveau = $('#c-niveau').value;
+  const naam = niveau ? `${basis} ${niveau}` : basis;
   const { error } = await sb.from('categorieen').insert({
     toernooi_id: tid, naam, max_teams: +$('#c-max').value || 8, aantal_poules: +$('#c-poules').value || 1,
-    volgorde: parseInt(naam.replace(/\D/g,'')) || 99
+    volgorde: (parseInt(basis.replace(/\D/g,'')) || 999) * 10 + (niveau === 'REG' ? 1 : niveau === 'PROV' ? 2 : niveau === 'IP' ? 3 : 0)
   });
   if (error) return fout(error);
   toast('Categorie toegevoegd'); render();
@@ -2288,8 +2298,8 @@ async function vKalender(){
         </div>
         <div>
           <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h(i.naam)} ${i.sjotter ? '<span class="badge b-live">op ' + CONFIG.PLATFORM + '</span>' : ''}</h3>
-          ${i.club ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:23px;color:var(--blauw-d);margin-top:2px;letter-spacing:.01em">georganiseerd door ${h(i.club)}</p>` : ''}
-          <p class="sub">${h(i.plaats||'')}${i.cats ? ' · ' + h(i.cats) : ''}</p>
+          ${i.club ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:23px;color:var(--blauw-d);margin-top:2px;letter-spacing:.01em">\u{1F6E1}\u{FE0F} ${h(i.club)}</p>` : ''}
+          <p class="sub">${i.plaats ? '\u{1F4CD} ' + h(i.plaats) : ''}${i.cats ? ' \u00b7 ' + h(i.cats) : ''}</p>
         </div>
       </div>
       ${i.link ? (i.sjotter
@@ -2380,19 +2390,24 @@ function vHelp(){
   root().innerHTML = topbar() + `<div class="wrap" style="max-width:720px">
     <div class="kaart">
       <h3>Voor organisatoren</h3>
-      ${V('Wat kost een toernooi organiseren?', 'Een toernooi aanmaken, categorie\u00ebn instellen en alles uittesten is volledig gratis. Je betaalt \u20ac ' + CONFIG.PRIJS + ' per toernooi, \u00e9\u00e9nmalig, op het moment dat je publiceert \u2014 voor een onbeperkt aantal ploegen en categorie\u00ebn. Geen abonnement, geen verborgen kosten.')}
+      ${V('Wat kost een toernooi organiseren?', 'Een toernooi aanmaken, categorie\u00ebn instellen en alles uittesten is volledig gratis. Je betaalt \u20ac ' + CONFIG.PRIJS + ' per toernooi, \u00e9\u00e9nmalig, op het moment dat je publiceert \u2014 voor een ongelimiteerd aantal ploegen en poules. Geen abonnement, geen verborgen kosten.')}
       ${V('Hoe werkt de betaling?', 'Bij het tabblad "Publicatie & betaling" vind je ons rekeningnummer en een unieke mededeling. Na overschrijving (of Payconiq) wordt je betaling meestal binnen 1 werkdag verwerkt en kan je publiceren.')}
       ${V('Hoe schrijven clubs zich in?', 'Na publicatie krijg je een publieke link. Deel die met de clubs \u2014 zij schrijven hun ploegen zelf in per leeftijdscategorie. Vol is vol: het maximum per categorie bewaak je zelf bij de instellingen.')}
       ${V('Hoe werkt de loting en het speelschema?', 'Met \u00e9\u00e9n klik verdeelt de loting de ploegen over de poules, waarbij ploegen van dezelfde club uit elkaar gehouden worden. Daarna genereert het schema zich automatisch op basis van je velden, wedstrijdduur en pauzes \u2014 zonder dubbele boekingen. Alles blijft nadien manueel bij te sturen.')}
       ${V('Kan ik kruisfinales of een eigen format spelen?', 'Ja. Bij het tabblad Schema kies je de finalemodus: rechtstreekse finales (1A\u20131B) of kruisfinales (1A\u20132B en 1B\u20132A, waarna je met dezelfde knop de finale uit de winnaars genereert). Volledig eigen formats bouw je met "wedstrijd manueel toevoegen" \u2014 je kiest zelf de teams, het label, het veld en het tijdstip.')}
-      ${V('Wat doen de scheidsrechterslinks?', 'Elke scheidsrechter krijgt een persoonlijke link waarop hij enkel zijn eigen wedstrijden ziet en zelf de scores kan ingeven. Die verschijnen meteen op de live standen en het TV-scherm.')}
-      ${V('Wat is het TV-scherm?', 'Een link die je op een groot scherm in de kantine opent: hij toont automatisch roterend het programma, de live standen en je sponsors \u2014 de hele dag, zonder dat je iets moet doen.')}
+      ${V('Wat doen de scheidsrechterslinks?', 'Elke scheidsrechter krijgt een persoonlijke link waarop hij enkel zijn eigen wedstrijden ziet en zelf de scores kan ingeven. Je kan scheidsrechters ook automatisch toewijzen \u2014 willekeurig verdeeld of per vast veld \u2014 en beperkingen instellen zoals categorie, voor- of namiddag, of hun eigen club uitsluiten.')}
+      ${V('Kan ik zelf bepalen hoe de rangschikking wordt berekend?', 'Ja. Bij Instellingen stel je zelf de volgorde van de criteria in bij gelijke punten \u2014 doelsaldo, onderling resultaat, gescoorde doelpunten, minste tegendoelpunten en gewonnen wedstrijden \u2014 helemaal naar eigen inzicht met pijltjes te herschikken.')}
+      ${V('Wat is het TV-scherm?', 'Een link die je op een groot scherm in de kantine opent: hij toont automatisch roterend het programma, de live standen en je sponsors. Zodra de poulefase van een categorie afgelopen is, schakelt het scherm zelf door naar de finales \u2014 de hele dag, zonder dat je iets moet doen.')}
+      ${V('Kan ik het speelschema exporteren of afdrukken?', 'Ja, bij het tabblad Schema vind je een knop om het volledige schema als Excel (CSV) te downloaden, en een knop om een nette, afdrukvriendelijke versie te printen \u2014 handig als reserve op de dag zelf.')}
+      ${V('Kunnen ploegen een clublogo toevoegen?', 'Ja, bij inschrijving kunnen clubs een logo uploaden. Jij kan als organisator ook zelf een clublogo en een eigen kleur instellen die op de publieke pagina en het TV-scherm verschijnen.')}
+      ${V('Staat mijn toernooi ook in de toernooikalender?', 'Zodra je publiceert, verschijnt je toernooi automatisch in de gratis toernooikalender op ' + CONFIG.PLATFORM + ' \u2014 zichtbaar voor alle bezoekers, ook wie niet specifiek naar jouw toernooi zocht.')}
     </div>
     <div class="kaart">
       <h3>Voor trainers (oefenwedstrijden)</h3>
       ${V('Wat kost een zoekertje?', 'Niets. Zoekertjes plaatsen en doorzoeken is volledig gratis, en je hebt er geen account voor nodig.')}
-      ${V('Hoe vind ik een tegenstander?', 'Filter op categorie, niveau en provincie. Zie je een match, klik dan op "Toon contact" en neem rechtstreeks contact op met de club.')}
-      ${V('Hoe verwijder ik mijn zoekertje?', 'Bij het plaatsen kreeg je een beheerlink. Daarmee markeer je het zoekertje als "gevonden" of verwijder je het. Link kwijt? Mail ons even.')}
+      ${V('Hoe vind ik een tegenstander?', 'Filter op categorie, niveau en provincie. Zie je een match? Klik dan op "Toon contact" of "Stuur een bericht" (als de plaatser voor die optie koos) om rechtstreeks contact op te nemen.')}
+      ${V('Hoe beheer ik mijn zoekertje achteraf?', 'Bij het plaatsen koos je een pincode van 4 cijfers \u2014 daarmee markeer je het zoekertje meteen vanaf de lijst als "gevonden" of verwijder je het. Je kreeg ook een beheerlink per e-mail; beide werken. Alles kwijt? Gebruik "Beheerlink kwijt?" bovenaan de lijst om ze opnieuw te ontvangen.')}
+      ${V('Wat betekent "Enkel via bericht"?', 'Als de plaatser koos voor berichten via ' + CONFIG.PLATFORM + ' in plaats van zijn gegevens te tonen, stuur je je vraag via een formulier op de kaart. Je bericht komt rechtstreeks in de mailbox van de plaatser terecht, zonder dat zijn e-mailadres zichtbaar wordt.')}
       ${V('Vergeet de wedstrijd niet aan te vragen', 'Gevonden? Denk eraan om de oefenwedstrijd offici\u00ebel aan te vragen via E-Kickoff, zodat jullie verzekerd zijn.')}
     </div>
     <div class="kaart" style="text-align:center">
