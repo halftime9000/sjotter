@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjE2IiBmaWxsPSIjMEQzQjIwIi8+CjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjEwLjUiIGZpbGw9IiNmZmZmZmYiLz4KPHBvbHlnb24gcG9pbnRzPSIxNiw5LjUgMjEuNCwxMy40IDE5LjQsMTkuNyAxMi42LDE5LjcgMTAuNiwxMy40IiBmaWxsPSIjMEQzQjIwIi8+Cjwvc3ZnPg==">
 <title>Sjotter — jeugdtoernooien organiseren en oefenwedstrijden vinden</title>
 <meta name="description" content="Sjotter — toernooien organiseren en oefenwedstrijden vinden voor jeugdvoetbal. Inschrijvingen, loting, speelschema en live standen.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -580,6 +581,7 @@ function tabInstellingen(el, d){
     </div>
     <div class="rij">
       <div><label>Locatie</label><input id="i-locatie" value="${h(t.locatie||'')}"></div>
+      <div><label>Provincie</label><select id="i-prov"><option value="">\u2014</option>${PROVINCIES.map(p=>`<option ${p===t.provincie?'selected':''}>${p}</option>`).join('')}</select></div>
       <div><label>Contact e-mail (publiek)</label><input id="i-email" value="${h(t.contact_email||'')}"></div>
     </div>
     <label>Beschrijving (publieke pagina)</label>
@@ -654,7 +656,7 @@ app.rangMove = (i, d) => {
 app.bewaarInstellingen = async (id) => {
   const upd = {
     naam: $('#i-naam').value.trim(), datum: $('#i-datum').value || null,
-    locatie: $('#i-locatie').value.trim(), contact_email: $('#i-email').value.trim(),
+    locatie: $('#i-locatie').value.trim(), provincie: $('#i-prov').value || null, contact_email: $('#i-email').value.trim(),
     beschrijving: $('#i-beschrijving').value.trim(),
     aantal_velden: +$('#i-velden').value || 1, wedstrijdduur: +$('#i-duur').value || 15,
     pauze: +$('#i-pauze').value || 0, starttijd: $('#i-start').value || '09:00',
@@ -2305,6 +2307,11 @@ async function vKalender(){
     <p style="margin-bottom:0">Alle jeugdtoernooien op een rij — meld je ploeg aan of voeg je eigen toernooi toe.</p>
   </div></section>
   <div class="wrap">
+    <div class="kaart"><div class="rij">
+      <div><label>Provincie</label><select id="kal-f-prov"><option value="">Alle</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+      <div><label>Categorie</label><select id="kal-f-cat"><option value="">Alle</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" id="kal-f-sjotter" style="width:auto"> Enkel op ${CONFIG.PLATFORM}</label></div>
+    </div></div>
     <div id="kal-lijst"><div class="leeg">Laden…</div></div>
     <div class="kaart" style="max-width:640px">
       <h3>Staat jouw toernooi er niet tussen?</h3>
@@ -2334,15 +2341,29 @@ async function vKalender(){
 
   const vandaag = new Date().toISOString().slice(0,10);
   const [sj, ext] = await Promise.all([
-    sb.from('toernooien').select('naam, slug, datum, locatie, club_logo, clubs(club_naam)').eq('status', 'gepubliceerd'),
+    sb.from('toernooien').select('naam, slug, datum, locatie, provincie, club_logo, clubs(club_naam)').eq('status', 'gepubliceerd'),
     sb.from('kalender').select('*').eq('status', 'goedgekeurd'),
   ]);
   const items = [];
-  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, club: t.clubs?.club_naam || null, plaats: t.locatie, cats: null, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo }); });
-  (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, club: k.club, plaats: k.gemeente, cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
+  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, club: t.clubs?.club_naam || null, plaats: t.locatie, provincie: t.provincie, cats: null, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo }); });
+  (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, club: k.club, plaats: k.gemeente, provincie: k.provincie, cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
   items.sort((a,b) => a.datum.localeCompare(b.datum));
+  _kalItems = items;
+  ['kal-f-prov','kal-f-cat','kal-f-sjotter'].forEach(id => $('#'+id).addEventListener('change', tekenKalender));
+  tekenKalender();
+}
 
-  $('#kal-lijst').innerHTML = items.length ? items.map(i => `
+let _kalItems = [];
+
+function tekenKalender(){
+  const prov = $('#kal-f-prov').value, cat = $('#kal-f-cat').value, alleenSjotter = $('#kal-f-sjotter').checked;
+  const gefilterd = _kalItems.filter(i => {
+    if (alleenSjotter && !i.sjotter) return false;
+    if (cat && !(i.cats||'').includes(cat)) return false;
+    if (prov && i.provincie !== prov) return false;
+    return true;
+  });
+  $('#kal-lijst').innerHTML = gefilterd.length ? gefilterd.map(i => `
     <div class="kaart" style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap">
       <div style="display:flex;gap:16px;align-items:center;min-width:240px">
         <div style="position:relative;flex-shrink:0">
