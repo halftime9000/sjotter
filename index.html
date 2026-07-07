@@ -1893,6 +1893,7 @@ async function vZoekLijst(){
     <h1 style="font-size:clamp(26px,5vw,40px)">Oefenwedstrijden</h1>
     <p style="margin-bottom:20px">Vrije speelweek of wedstrijd afgelast? Vind een tegenstander op jouw niveau — volledig gratis.</p>
     <a href="#/wedstrijden/plaatsen" class="btn btn-b">+ Plaats een zoekertje</a>
+    <div style="margin-top:12px"><a href="#" onclick="app.toonHerstel();return false" style="color:rgba(255,255,255,.75);font-size:13px">Beheerlink kwijt?</a></div>
   </div></section>
   <div class="wrap">
     <div class="kaart"><div class="rij">
@@ -1902,6 +1903,15 @@ async function vZoekLijst(){
       <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" id="z-f-gras" style="width:auto"> Enkel kunstgras</label></div>
     </div></div>
     <div id="z-lijst"><div class="leeg">Laden…</div></div>
+  </div>
+  <div class="wrap wrap-smal" id="herstel-form" style="display:none">
+    <div class="kaart">
+      <h3>Beheerlink opnieuw versturen</h3>
+      <p class="sub">Vul het e-mailadres in dat je gebruikte bij het plaatsen. We mailen je de beheerlink(s) van al je zoekertjes onder dat adres.</p>
+      <label>E-mailadres</label><input id="h-email" type="email">
+      <div id="h-melding"></div>
+      <button class="btn btn-b" style="margin-top:14px" onclick="app.herstelZoekertjes()">Verstuur beheerlinks</button>
+    </div>
   </div>` + voet();
   ['z-f-cat','z-f-niv','z-f-prov','z-f-gras'].forEach(id => $('#'+id).addEventListener('change', tekenZoek));
   const vandaag = new Date().toISOString().slice(0,10);
@@ -1974,6 +1984,29 @@ app.stuurBericht = async (id) => {
   } catch(e) { console.error(e); toast('Verzenden mislukt — probeer later opnieuw'); }
 };
 
+app.toonHerstel = () => {
+  const el = $('#herstel-form');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if (el.style.display === 'block') el.scrollIntoView({ behavior: 'smooth' });
+};
+
+app.herstelZoekertjes = async () => {
+  const email = $('#h-email').value.trim();
+  if (!email) return toast('Vul een e-mailadres in');
+  const { data, error } = await sb.rpc('zoekertje_herstel', { zemail: email });
+  if (error) return fout(error);
+  if (data && data.length && window.emailjs && CONFIG.EMAILJS_TEMPLATE !== 'VUL_IN') {
+    const lijst = data.map(z => `- ${z.categorie} ${z.niveau} (${z.club_naam}): ${location.origin + location.pathname}#/wedstrijden/beheer/${z.zoekertje_id}/${z.code}`).join('\n');
+    emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
+      naar_email: email, naar_naam: data[0].club_naam,
+      zoekertje: 'je zoekertjes',
+      van_naam: CONFIG.PLATFORM, van_email: CONFIG.CONTACT_EMAIL,
+      bericht: `Op jouw verzoek sturen we de beheerlinks van je zoekertjes opnieuw door:\n\n${lijst}`,
+    }).catch(e => console.error('herstel-mail mislukt', e));
+  }
+  $('#h-melding').innerHTML = '<div class="melding m-ok">✓ Als er zoekertjes gevonden werden onder dit e-mailadres, ontvang je binnen enkele minuten een e-mail met de beheerlink(s).</div>';
+};
+
 app.toonContact = (id) => {
   const z = _zoek.find(x => x.id === id);
   if (!z) return;
@@ -2042,8 +2075,15 @@ app.plaatsZoekertje = async () => {
   const code = rand(10);
   await sb.from('zoekertje_codes').insert({ zoekertje_id: z.id, code });
   const link = location.origin + location.pathname + '#/wedstrijden/beheer/' + z.id + '/' + code;
-  $('#z-melding').innerHTML = `<div class="melding m-ok">✓ Je zoekertje staat online!<br><br>
-    <strong>Bewaar deze beheerlink</strong> — daarmee markeer je het zoekertje later als "gevonden" of verwijder je het:<br>
+  if (window.emailjs && CONFIG.EMAILJS_TEMPLATE !== 'VUL_IN') {
+    emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
+      naar_email: z.contact_email, naar_naam: z.contact_naam,
+      zoekertje: `${z.categorie} ${z.niveau} — ${z.club_naam} (${z.gemeente})`,
+      van_naam: CONFIG.PLATFORM, van_email: CONFIG.CONTACT_EMAIL,
+      bericht: `Bedankt om je zoekertje te plaatsen! Bewaar deze e-mail: met onderstaande link beheer je je zoekertje (markeren als gevonden of verwijderen).\n\nBeheerlink: ${link}`,
+    }).catch(e => console.error('beheerlink-mail mislukt', e));
+  }
+  $('#z-melding').innerHTML = `<div class="melding m-ok">✓ Je zoekertje staat online! We stuurden de beheerlink ook naar <strong>${h(z.contact_email)}</strong> — bewaar die e-mail.<br><br>
     <input readonly value="${h(link)}" style="margin-top:8px" onclick="this.select()">
     <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd ✓'))">Kopieer link</button>
   </div>`;
