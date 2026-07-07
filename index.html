@@ -34,7 +34,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14p
 .topbar-in{max-width:1080px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}
 .logo{font-family:'Archivo';font-weight:900;font-size:20px;color:#fff;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .logo .bal{width:22px;height:22px;border-radius:50%;background:#fff;position:relative;display:inline-block}
-.slogan{font-family:'Caveat',cursive;font-weight:700;font-size:19px;color:var(--geel);margin-left:2px;white-space:nowrap}
+.slogan{font-family:'Caveat',cursive;font-weight:700;font-size:19px;color:var(--geel);margin-left:-12px;white-space:nowrap}
 .logo .bal::after{content:'';position:absolute;inset:6px;border-radius:2px;background:var(--inkt);clip-path:polygon(50% 0,100% 38%,81% 100%,19% 100%,0 38%)}
 .topbar nav{margin-left:auto;display:flex;gap:8px;align-items:center}
 .topbar nav a,.topbar nav button{color:#fff;font-weight:600;font-size:14px;padding:8px 14px;border-radius:8px;background:transparent;border:none}
@@ -154,12 +154,15 @@ td.num,th.num{text-align:center;width:42px}
 .tv .poule table{font-size:22px}
 .tv .tlogo{width:26px;height:26px}
 .tv-voet{padding:12px 40px;font-size:15px;color:rgba(255,255,255,.5);display:flex;justify-content:space-between}
+.modal-scherm{position:fixed;inset:0;background:rgba(16,27,20,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-kaart{background:var(--wit);border-radius:14px;box-shadow:0 12px 40px rgba(16,27,20,.25);padding:26px 26px 22px;max-width:420px;width:100%}
+.modal-kaart h3{font-size:18px;margin-bottom:4px}
+.modal-kaart .sub{color:var(--grijs);font-size:13.5px;margin-bottom:16px}
 /* ---------- categorie-bal ---------- */
 .cat-bal{width:58px;height:58px;border-radius:50%;background:linear-gradient(155deg,var(--blauw-d),var(--blauw));color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Archivo';font-weight:900;font-size:18px;flex-shrink:0;box-shadow:var(--shadow)}
 .cat-bal.ob{background:linear-gradient(155deg,#166B3C,#2FB56A)}
 .cat-bal.mb{background:linear-gradient(155deg,#1D3E7A,#4E86E8)}
 .cat-bal.bb{background:linear-gradient(155deg,#9A3D0C,#F59E0B)}
-.cat-bal.bel{background:linear-gradient(155deg,#101B14,#3D4B42);font-size:14px}
 /* ---------- split landing ---------- */
 .btn-b{background:var(--hemel);color:#fff}
 .btn-b:hover{background:#3B72D4}
@@ -458,8 +461,37 @@ async function vDashboard(){
   </div>`;
 }
 
+function vraagInvoer({ titel, uitleg = '', label, knop = 'Aanmaken', waarde = '' }){
+  return new Promise(resolve => {
+    const scherm = document.createElement('div');
+    scherm.className = 'modal-scherm';
+    scherm.innerHTML = `<div class="modal-kaart">
+      <h3>${h(titel)}</h3>
+      ${uitleg ? `<p class="sub">${h(uitleg)}</p>` : ''}
+      <label>${h(label)}</label><input id="modal-invoer" value="${h(waarde)}">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+        <button class="btn btn-o" id="modal-annuleer">Annuleren</button>
+        <button class="btn btn-p" id="modal-ok">${h(knop)}</button>
+      </div>
+    </div>`;
+    document.body.appendChild(scherm);
+    const invoer = scherm.querySelector('#modal-invoer');
+    invoer.focus();
+    const sluit = waarde => { scherm.remove(); resolve(waarde); };
+    scherm.querySelector('#modal-ok').onclick = () => sluit(invoer.value.trim() || null);
+    scherm.querySelector('#modal-annuleer').onclick = () => sluit(null);
+    scherm.onclick = e => { if (e.target === scherm) sluit(null); };
+    invoer.onkeydown = e => { if (e.key === 'Enter') sluit(invoer.value.trim() || null); if (e.key === 'Escape') sluit(null); };
+  });
+}
+
 app.nieuwToernooi = async () => {
-  const naam = prompt('Naam van het toernooi (bv. Paastornooi KSK Lovendegem 2027):');
+  const naam = await vraagInvoer({
+    titel: 'Nieuw toernooi',
+    uitleg: 'Geef je toernooi een naam — je kan dit later nog aanpassen.',
+    label: 'Naam van het toernooi',
+    knop: 'Toernooi aanmaken',
+  });
   if (!naam) return;
   const slug = slugify(naam).slice(0, 40) + '-' + rand(4).toLowerCase();
   const { data, error } = await sb.from('toernooien').insert({
@@ -1879,12 +1911,12 @@ app.verwijderSponsor = async (id) => {
 /* ============================================================
    OEFENWEDSTRIJDEN (zoekertjes) — gratis
    ============================================================ */
-const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U21','Beloften'];
-const bouwVoor = c => { if (c === 'Beloften') return 'bel'; const n = parseInt(String(c).replace(/\D/g,'')) || 99; return n <= 9 ? 'ob' : n <= 13 ? 'mb' : 'bb'; };
+const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U19','U21'];
+const bouwVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 99; return n <= 9 ? 'ob' : n <= 13 ? 'mb' : 'bb'; };
 const NIVEAUS = ['gewestelijk','provinciaal','interprovinciaal'];
 const PROVINCIES = ['Antwerpen','Limburg','Oost-Vlaanderen','Vlaams-Brabant','West-Vlaanderen','Brussel','Henegouwen','Luik','Luxemburg','Namen','Waals-Brabant'];
 const NIVEAU_CODES = ['1','1-2','2','2-3','3'];
-const formaatVoor = c => { if (c === 'Beloften') return '11v11'; const n = parseInt(String(c).replace(/\D/g,'')) || 15; return n <= 6 ? '2v2 / 3v3' : n <= 9 ? '5v5' : n <= 13 ? '8v8' : '11v11'; };
+const formaatVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 15; return n <= 6 ? '2v2 / 3v3' : n <= 9 ? '5v5' : n <= 13 ? '8v8' : '11v11'; };
 let _zoek = [];
 
 async function vZoekLijst(){
@@ -1928,7 +1960,7 @@ function tekenZoek(){
     <div class="kaart">
       <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <div style="display:flex;gap:16px;min-width:260px;align-items:flex-start">
-        <div class="cat-bal ${bouwVoor(z.categorie)}" title="${z.categorie==='Beloften'?'Beloften':bouwVoor(z.categorie)==='ob'?'Onderbouw':bouwVoor(z.categorie)==='mb'?'Middenbouw':'Bovenbouw'}">${z.categorie==='Beloften'?'BEL':h(z.categorie)}</div>
+        <div class="cat-bal ${bouwVoor(z.categorie)}" title="${bouwVoor(z.categorie)==='ob'?'Onderbouw':bouwVoor(z.categorie)==='mb'?'Middenbouw':'Bovenbouw'}">${h(z.categorie)}</div>
         <div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
             <span class="badge b-concept">${h(z.niveau)}</span>
