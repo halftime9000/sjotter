@@ -167,7 +167,7 @@ td.num,th.num{text-align:center;width:42px}
 .btn-b{background:var(--hemel);color:#fff}
 .btn-b:hover{background:#3B72D4}
 .hero-b{background:var(--blauw-d)}
-.split{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 60px)}
+.split{position:relative;display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 60px)}
 .paneel{position:relative;overflow:hidden;color:#fff;padding:76px 52px;display:flex;flex-direction:column;justify-content:center}
 .paneel::before{content:'';position:absolute;width:560px;height:560px;border:2px dashed rgba(255,255,255,.13);border-radius:50%;top:-170px;right:-170px;pointer-events:none}
 .paneel-t{background:linear-gradient(155deg,rgba(13,59,32,.93) 0%,rgba(26,100,56,.90) 100%),url('foto-toernooi.jpg') center/cover no-repeat,linear-gradient(155deg,var(--groen-d),#1A6438)}
@@ -180,7 +180,7 @@ td.num,th.num{text-align:center;width:42px}
 .paneel li::before{content:'✓';font-weight:800;color:var(--geel)}
 .paneel-w li::before{color:#9BBCF5}
 .paneel .btn{align-self:flex-start;font-size:15.5px;padding:13px 26px}
-@media(max-width:860px){.split{grid-template-columns:1fr;min-height:auto}.paneel{padding:52px 24px}}
+@media(max-width:860px){.split{grid-template-columns:1fr;min-height:auto}.paneel{padding:52px 24px}.split>.b-beta{top:52px;left:24px}}
 @media print{
   .topbar,.tabs,.btn,select,.stat-rij,#toast,footer,details,.melding{display:none !important}
   body{background:#fff}
@@ -341,8 +341,8 @@ function topbar(){
 function vLanding(){
   root().innerHTML = topbar() + `
   <div class="split">
+    <span class="badge b-beta" style="position:absolute;top:76px;left:52px;z-index:5">Bèta</span>
     <section class="paneel paneel-t">
-      <span class="badge b-beta" style="position:absolute;top:22px;right:26px;z-index:2">Bèta</span>
       <div class="tag">Voor clubs en organisatoren</div>
       <h2>Organiseer je jeugdtoernooi</h2>
       <p class="lead">Van online inschrijvingen tot de eindstand \u2014 alles op \u00e9\u00e9n plek, klaar in enkele minuten.</p>
@@ -364,6 +364,7 @@ function vLanding(){
         <li>Rechtstreeks contact met de andere club</li>
       </ul>
       <a href="#/wedstrijden" class="btn btn-b">Bekijk de zoekertjes</a>
+      <div style="margin-top:14px;font-size:13.5px;visibility:hidden" aria-hidden="true">.</div>
     </section>
   </div>` + voet();
 }
@@ -1369,11 +1370,11 @@ function pubInschrijven(el, d, open){
     </div>
     <label>Clublogo (optioneel)</label><input id="p-logo" type="file" accept="image/*">
     <div id="p-melding"></div>
-    <button class="btn btn-p" style="margin-top:16px" onclick="app.schrijfIn('${d.t.id}')">Ploeg inschrijven</button>
+    <button class="btn btn-p" style="margin-top:16px" onclick="app.schrijfIn('${d.t.id}','${d.t.slug}')">Ploeg inschrijven</button>
   </div>`;
 }
 
-app.schrijfIn = async (tid) => {
+app.schrijfIn = async (tid, slug) => {
   const cid = $('#p-cat').value, club = $('#p-club').value.trim(), stam = $('#p-stam').value.trim(),
         naam = $('#p-naam').value.trim(), email = $('#p-email').value.trim(), tel = $('#p-tel').value.trim();
   if (!cid || !club || !stam || !naam || !email || !tel) return toast('Vul alle verplichte velden in (*)');
@@ -1388,9 +1389,8 @@ app.schrijfIn = async (tid) => {
   }).select().single();
   if (error) return fout(error);
   await sb.from('team_contacten').insert({ team_id: team.id, naam, email, telefoon: tel });
-  $('#p-melding').innerHTML = `<div class="melding m-ok">✓ <strong>${h(club)}</strong> is ingeschreven! De organisator heeft je gegevens ontvangen.</div>`;
-  ['#p-club','#p-stam','#p-team','#p-naam','#p-email','#p-tel'].forEach(s => $(s).value = '');
-  toast('Inschrijving gelukt ⚽');
+  toast(`\u2713 ${club} is ingeschreven \u26bd`);
+  location.hash = `#/p/${slug}/deelnemers`;
 };
 
 function pubProgramma(el, d){
@@ -1545,7 +1545,7 @@ async function vAdmin(){
         <td>${k.datum||'—'}</td>
         <td style="font-size:12px">${k.link ? `<a href="${h(/^https?:\/\//.test(k.link)?k.link:'https://'+k.link)}" target="_blank">link ↗</a>` : '—'}</td>
         <td><button class="btn ${k.status==='goedgekeurd'?'btn-o':'btn-p'} btn-sm" onclick="app.kalenderStatus('${k.id}','${k.status==='goedgekeurd'?'nieuw':'goedgekeurd'}')">${k.status==='goedgekeurd' ? '✓ live' : 'Keur goed'}</button></td>
-        <td><button class="btn btn-r btn-sm" onclick="app.kalenderVerwijder('${k.id}')">✕</button></td>
+        <td style="white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkKalender('${k.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.kalenderVerwijder('${k.id}')">✕</button></td>
       </tr>`).join('') || '<tr><td colspan="6" class="leeg">Nog geen externe toernooien ingediend.</td></tr>'}
       </table>
     </div>
@@ -1603,6 +1603,49 @@ app.kalenderVerwijder = async (id) => {
   const { error } = await sb.from('kalender').delete().eq('id', id);
   if (error) return fout(error);
   render();
+};
+
+app.bewerkKalender = async (id) => {
+  const { data: k, error: e1 } = await sb.from('kalender').select('*').eq('id', id).single();
+  if (e1 || !k) return fout(e1 || new Error('Niet gevonden'));
+  const scherm = document.createElement('div');
+  scherm.className = 'modal-scherm';
+  scherm.innerHTML = `<div class="modal-kaart" style="max-width:520px">
+    <h3>Kalenderitem bewerken</h3>
+    <p class="sub">Pas de gegevens aan die bij de indiening zijn opgegeven.</p>
+    <div class="rij">
+      <div><label>Naam toernooi</label><input id="bk-naam" value="${h(k.naam||'')}"></div>
+      <div><label>Organiserende club</label><input id="bk-club" value="${h(k.club||'')}"></div>
+    </div>
+    <div class="rij">
+      <div><label>Datum</label><input id="bk-datum" type="date" value="${k.datum||''}"></div>
+      <div><label>Gemeente</label><input id="bk-gemeente" value="${h(k.gemeente||'')}"></div>
+      <div><label>Provincie</label><select id="bk-prov">${PROVINCIES.map(p=>`<option ${p===k.provincie?'selected':''}>${p}</option>`).join('')}</select></div>
+    </div>
+    <div class="rij">
+      <div><label>Categorieën</label><input id="bk-cats" value="${h(k.categorieen||'')}"></div>
+      <div><label>Link (website / inschrijving)</label><input id="bk-link" value="${h(k.link||'')}"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-o" id="bk-annuleer">Annuleren</button>
+      <button class="btn btn-p" id="bk-ok">Opslaan</button>
+    </div>
+  </div>`;
+  document.body.appendChild(scherm);
+  const sluit = () => scherm.remove();
+  scherm.querySelector('#bk-annuleer').onclick = sluit;
+  scherm.onclick = e => { if (e.target === scherm) sluit(); };
+  scherm.querySelector('#bk-ok').onclick = async () => {
+    const v = id2 => scherm.querySelector('#' + id2).value.trim();
+    const { error } = await sb.from('kalender').update({
+      naam: v('bk-naam'), club: v('bk-club') || null, datum: v('bk-datum') || null,
+      gemeente: v('bk-gemeente') || null, provincie: scherm.querySelector('#bk-prov').value,
+      categorieen: v('bk-cats') || null, link: v('bk-link') || null,
+    }).eq('id', id);
+    if (error) return fout(error);
+    toast('Kalenderitem bijgewerkt ✓');
+    sluit(); render();
+  };
 };
 
 app.adminVerwijderClub = async (id) => {
@@ -2206,11 +2249,24 @@ app.plaatsZoekertje = async () => {
       bericht: `Bedankt om je zoekertje te plaatsen! Bewaar deze e-mail: met onderstaande link beheer je je zoekertje (markeren als gevonden of verwijderen).\n\nBeheerlink: ${link}`,
     }).catch(e => console.error('beheerlink-mail mislukt', e));
   }
-  $('#z-melding').innerHTML = `<div class="melding m-ok">✓ Je zoekertje staat online! Je pincode is <strong style="font-family:'IBM Plex Mono',monospace;font-size:16px">${h(v('z-pin'))}</strong> — daarmee beheer je het zo dadelijk vanaf de lijst. We stuurden ook een beheerlink naar <strong>${h(z.contact_email)}</strong>.<br><br>
-    <input readonly value="${h(link)}" style="margin-top:8px" onclick="this.select()">
-    <button class="btn btn-o btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd ✓'))">Kopieer link</button>
-  </div>`;
-  toast('Zoekertje geplaatst ⚽');
+  root().innerHTML = topbar() + `<div class="wrap wrap-smal">
+    <div class="kaart" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:6px">\u2705</div>
+      <h3>Je zoekertje staat online!</h3>
+      <p class="sub">${h(z.categorie)} ${h(z.niveau)} \u2014 ${h(z.club_naam)} (${h(z.gemeente)})</p>
+      <hr class="krijt">
+      <p style="font-size:14px;text-align:left">Je pincode is <strong style="font-family:'IBM Plex Mono',monospace;font-size:17px">${h(v('z-pin'))}</strong> \u2014 daarmee beheer je het zo dadelijk vanaf de lijst (markeren als gevonden of verwijderen). We stuurden ook een beheerlink naar <strong>${h(z.contact_email)}</strong>.</p>
+      <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
+        <input readonly value="${h(link)}" style="flex:1;min-width:180px" onclick="this.select()">
+        <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText('${h(link)}').then(()=>toast('Link gekopieerd \u2713'))">Kopieer link</button>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap">
+        <a class="btn btn-b" href="#/wedstrijden">Bekijk alle zoekertjes</a>
+        <a class="btn btn-o" href="#/wedstrijden/plaatsen">Nog een zoekertje plaatsen</a>
+      </div>
+    </div>
+  </div>` + voet();
+  toast('Zoekertje geplaatst \u26bd');
 };
 
 async function vZoekBeheer(id, code){
@@ -2298,7 +2354,7 @@ async function vKalender(){
         </div>
         <div>
           <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h(i.naam)} ${i.sjotter ? '<span class="badge b-live">op ' + CONFIG.PLATFORM + '</span>' : ''}</h3>
-          ${i.club ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:23px;color:var(--blauw-d);margin-top:2px;letter-spacing:.01em">\u{1F6E1}\u{FE0F} ${h(i.club)}</p>` : ''}
+          ${i.club ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:17px;color:var(--blauw-d);margin-top:2px;letter-spacing:.01em"><span style="font-size:14px">\u{1F6E1}\u{FE0F}</span> ${h(i.club)}</p>` : ''}
           <p class="sub">${i.plaats ? '\u{1F4CD} ' + h(i.plaats) : ''}${i.cats ? ' \u00b7 ' + h(i.cats) : ''}</p>
         </div>
       </div>
@@ -2315,13 +2371,24 @@ app.kalenderToevoegen = async () => {
   let club_logo = null;
   const f = $('#k-logo').files[0];
   if (f) { try { club_logo = await uploadLogo(f); } catch(e){ return fout(e); } }
+  const naam = v('k-naam'), club = v('k-club');
   const { error } = await sb.from('kalender').insert({
-    naam: v('k-naam'), club: v('k-club'), datum: v('k-datum'), gemeente: v('k-gemeente'),
+    naam, club, datum: v('k-datum'), gemeente: v('k-gemeente'),
     provincie: $('#k-prov').value, categorieen: cats, link: v('k-link') || null, club_logo,
   });
   if (error) return fout(error);
-  $('#k-melding').innerHTML = '<div class="melding m-ok">✓ Bedankt! Je toernooi wordt kort nagekeken en verschijnt daarna in de kalender.</div>';
-  toast('Toernooi ingediend ✓');
+  root().innerHTML = topbar() + `<div class="wrap wrap-smal">
+    <div class="kaart" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:6px">\u2705</div>
+      <h3>Bedankt voor je indiening!</h3>
+      <p class="sub">${h(naam)} (${h(club)}) wordt kort nagekeken en verschijnt daarna in de toernooikalender.</p>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap">
+        <a class="btn btn-p" href="#/toernooien">Naar de kalender</a>
+        <a class="btn btn-o" href="#/toernooien">Nog een toernooi indienen</a>
+      </div>
+    </div>
+  </div>` + voet();
+  toast('Toernooi ingediend \u2713');
 };
 
 /* ============================================================
