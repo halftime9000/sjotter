@@ -342,8 +342,8 @@ function vLanding(){
   root().innerHTML = topbar() + `
   <div class="split">
     <section class="paneel paneel-t">
-      <div class="tag">Voor clubs en organisatoren</div>
-      <h2>Organiseer je jeugdtoernooi <span class="badge b-beta" style="vertical-align:middle;font-size:11px">Bèta</span></h2>
+      <div class="tag">Voor clubs en organisatoren <span class="badge b-beta" style="vertical-align:middle;font-size:10px;margin-left:4px">Bèta</span></div>
+      <h2>Organiseer je jeugdtoernooi</h2>
       <p class="lead">Van online inschrijvingen tot de eindstand \u2014 alles op \u00e9\u00e9n plek, klaar in enkele minuten.</p>
       <ul>
         <li>Online inschrijvingen per leeftijdscategorie</li>
@@ -2288,7 +2288,7 @@ async function vKalender(){
         </div>
         <div>
           <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h(i.naam)} ${i.sjotter ? '<span class="badge b-live">op ' + CONFIG.PLATFORM + '</span>' : ''}</h3>
-          ${i.club ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:19px;color:var(--blauw);margin-top:2px">georganiseerd door ${h(i.club)}</p>` : ''}
+          ${i.club ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:23px;color:var(--blauw-d);margin-top:2px;letter-spacing:.01em">georganiseerd door ${h(i.club)}</p>` : ''}
           <p class="sub">${h(i.plaats||'')}${i.cats ? ' · ' + h(i.cats) : ''}</p>
         </div>
       </div>
