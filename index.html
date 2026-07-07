@@ -2240,7 +2240,8 @@ async function vZoekLijst(){
   _zoek = (data || []).filter(z => z.flexibel || !z.datum || z.datum >= vandaag);
   tekenZoek();
 
-  const { count: gevondenCount } = await sb.from('zoekertjes').select('*', { count: 'exact', head: true }).eq('status', 'gevonden');
+  const { count: gevondenCount, error: gevondenErr } = await sb.from('zoekertjes').select('id', { count: 'exact', head: true }).eq('status', 'gevonden');
+  if (gevondenErr) console.error('gevondenCount-fout', gevondenErr);
   $('#z-tellers').innerHTML = `<div class="stat-rij" style="margin-bottom:4px">
     <div class="stat"><div class="n">${_zoek.length}</div><div class="l">Zoekertjes online</div></div>
     ${gevondenCount ? `<div class="stat"><div class="n">${gevondenCount}</div><div class="l">Matches gevonden</div></div>` : ''}
@@ -2508,9 +2509,9 @@ async function vZoekBeheer(id, code){
     <h3>Beheer zoekertje</h3>
     <p class="sub">${h(z.club_naam)} · ${h(z.categorie)} ${h(z.niveau)} · ${z.flexibel || !z.datum ? 'datum in overleg' : datumNL(z.datum)}</p>
     <p style="margin-top:10px;font-size:12.5px;color:var(--grijs)">${z.status === 'open' ? 'open' : 'gevonden✅'}</p>
-    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
-      ${z.status === 'open' ? `<button class="btn btn-b" onclick="app.zoekActie('${h(id)}','${h(code)}','gevonden')">✓ Tegenstander gevonden</button>` : ''}
-      <button class="btn btn-r" onclick="app.zoekActie('${h(id)}','${h(code)}','verwijder')">Verwijder zoekertje</button>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      ${z.status === 'open' ? `<button class="btn btn-o btn-sm" onclick="app.zoekActie('${h(id)}','${h(code)}','gevonden')">✓ Gevonden</button>` : ''}
+      <button class="btn btn-r btn-sm" onclick="app.zoekActie('${h(id)}','${h(code)}','verwijder')">Verwijderen</button>
     </div>`;
 }
 
