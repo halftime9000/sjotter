@@ -238,6 +238,7 @@ let mijnClub = null;
 const $ = s => document.querySelector(s);
 const root = () => $('#root');
 const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function kapitaliseer(el){ if (el.value) el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1); }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('zien'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('zien'),2600); }
 function fout(e){ console.error(e); toast('⚠ ' + (e?.message || 'Er ging iets mis')); }
 const rand = n => Array.from({length:n},()=> 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*31)]).join('');
@@ -750,7 +751,7 @@ async function tabTeams(el, d){
       </table>` : '<div class="leeg">Nog geen inschrijvingen.</div>'}
       <hr class="krijt">
       <div class="rij">
-        <div><label>Clubnaam</label><input id="t-club-${c.id}"></div>
+        <div><label>Clubnaam</label><input id="t-club-${c.id}" onblur="kapitaliseer(this)"></div>
         <div><label>Stamnummer</label><input id="t-stam-${c.id}"></div>
         <div><label>Ploegnaam (optioneel)</label><input id="t-naam-${c.id}"></div>
         <div><label>Logo (optioneel)</label><input id="t-logo-${c.id}" type="file" accept="image/*"></div>
@@ -1347,7 +1348,7 @@ function pubInschrijven(el, d, open){
       return `<option value="${c.id}" ${vol?'disabled':''}>${h(c.naam)} (${n}/${c.max_teams}${vol?' — VOL':''})</option>`;
     }).join('')}</select>
     <div class="rij">
-      <div><label>Clubnaam *</label><input id="p-club"></div>
+      <div><label>Clubnaam *</label><input id="p-club" onblur="kapitaliseer(this)"></div>
       <div><label>Stamnummer *</label><input id="p-stam"></div>
       <div><label>Ploegnaam (optioneel)</label><input id="p-team"></div>
     </div>
@@ -1913,6 +1914,7 @@ app.verwijderSponsor = async (id) => {
    ============================================================ */
 const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U19','U21'];
 const bouwVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 99; return n <= 9 ? 'ob' : n <= 13 ? 'mb' : 'bb'; };
+const niveauAfk = z => { const a = z.niveau === 'interprovinciaal' ? 'IP' : z.niveau === 'provinciaal' ? 'PROV' : 'GEW'; return z.niveau_code ? `${a}-Niv ${z.niveau_code}` : a; };
 const NIVEAUS = ['gewestelijk','provinciaal','interprovinciaal'];
 const PROVINCIES = ['Antwerpen','Limburg','Oost-Vlaanderen','Vlaams-Brabant','West-Vlaanderen','Brussel','Henegouwen','Luik','Luxemburg','Namen','Waals-Brabant'];
 const NIVEAU_CODES = ['1','1-2','2','2-3','3'];
@@ -1928,6 +1930,7 @@ async function vZoekLijst(){
     <div style="margin-top:12px"><a href="#" onclick="app.toonHerstel();return false" style="color:rgba(255,255,255,.75);font-size:13px">Beheerlink kwijt?</a></div>
   </div></section>
   <div class="wrap">
+    <div id="z-tellers"></div>
     <div class="kaart"><div class="rij">
       <div><label>Categorie</label><select id="z-f-cat"><option value="">Alle</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div><label>Niveau</label><select id="z-f-niv"><option value="">Alle</option>${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
@@ -1951,6 +1954,12 @@ async function vZoekLijst(){
   if (error) return fout(error);
   _zoek = (data || []).filter(z => z.flexibel || !z.datum || z.datum >= vandaag);
   tekenZoek();
+
+  const { count: gevondenCount } = await sb.from('zoekertjes').select('*', { count: 'exact', head: true }).eq('status', 'gevonden');
+  $('#z-tellers').innerHTML = `<div class="stat-rij" style="margin-bottom:4px">
+    <div class="stat"><div class="n">${_zoek.length}</div><div class="l">Zoekertjes online</div></div>
+    ${gevondenCount ? `<div class="stat"><div class="n">${gevondenCount}</div><div class="l">Matches gevonden</div></div>` : ''}
+  </div>`;
 }
 
 function tekenZoek(){
@@ -1963,8 +1972,7 @@ function tekenZoek(){
         <div class="cat-bal ${bouwVoor(z.categorie)}" title="${bouwVoor(z.categorie)==='ob'?'Onderbouw':bouwVoor(z.categorie)==='mb'?'Middenbouw':'Bovenbouw'}">${h(z.categorie)}</div>
         <div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-            <span class="badge b-concept">${h(z.niveau)}</span>
-            ${z.niveau_code ? '<span class="badge b-live">Niveau '+h(z.niveau_code)+'</span>' : ''}
+            <span class="badge b-live">${niveauAfk(z)}</span>
             <span class="badge b-concept">${h(formaatVoor(z.categorie))}</span>
             ${z.kunstgras ? '<span class="badge b-geel">Kunstgras</span>' : ''}
           </div>
@@ -2077,7 +2085,7 @@ function vZoekPlaatsen(){
       <h3>Plaats een zoekertje</h3>
       <p class="sub">Gratis en zonder account. Zoekertjes met een speeldatum in het verleden verdwijnen automatisch uit de lijst.</p>
       <div class="rij">
-        <div><label>Clubnaam *</label><input id="z-club"></div>
+        <div><label>Clubnaam *</label><input id="z-club" onblur="kapitaliseer(this)"></div>
         <div><label>Gemeente *</label><input id="z-gemeente"></div>
       </div>
       <div class="rij">
@@ -2190,7 +2198,7 @@ async function vKalender(){
       <p class="sub">Voeg het gratis toe — na een korte controle verschijnt het in de kalender. Organiseer je met ${CONFIG.PLATFORM}? Dan staat je toernooi er automatisch op.</p>
       <div class="rij">
         <div><label>Naam toernooi *</label><input id="k-naam"></div>
-        <div><label>Organiserende club *</label><input id="k-club"></div>
+        <div><label>Organiserende club *</label><input id="k-club" onblur="kapitaliseer(this)"></div>
       </div>
       <div class="rij">
         <div><label>Datum *</label><input id="k-datum" type="date"></div>
