@@ -1914,6 +1914,54 @@ app.verwijderSponsor = async (id) => {
    ============================================================ */
 const CATS = ['U6','U7','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U19','U21'];
 const bouwVoor = c => { const n = parseInt(String(c).replace(/\D/g,'')) || 99; return n <= 9 ? 'ob' : n <= 13 ? 'mb' : 'bb'; };
+
+const GEM_PROV = {
+  'aalst':'Oost-Vlaanderen','aalter':'Oost-Vlaanderen','assenede':'Oost-Vlaanderen','berlare':'Oost-Vlaanderen',
+  'beveren':'Oost-Vlaanderen','brakel':'Oost-Vlaanderen','buggenhout':'Oost-Vlaanderen','de pinte':'Oost-Vlaanderen',
+  'deinze':'Oost-Vlaanderen','dendermonde':'Oost-Vlaanderen','destelbergen':'Oost-Vlaanderen','eeklo':'Oost-Vlaanderen',
+  'erpe-mere':'Oost-Vlaanderen','evergem':'Oost-Vlaanderen','gavere':'Oost-Vlaanderen','gent':'Oost-Vlaanderen',
+  'geraardsbergen':'Oost-Vlaanderen','haaltert':'Oost-Vlaanderen','hamme':'Oost-Vlaanderen','herzele':'Oost-Vlaanderen',
+  'horebeke':'Oost-Vlaanderen','kaprijke':'Oost-Vlaanderen','kluisbergen':'Oost-Vlaanderen','kruibeke':'Oost-Vlaanderen',
+  'kruisem':'Oost-Vlaanderen','kruishoutem':'Oost-Vlaanderen','laarne':'Oost-Vlaanderen','lebbeke':'Oost-Vlaanderen',
+  'lede':'Oost-Vlaanderen','lievegem':'Oost-Vlaanderen','lochristi':'Oost-Vlaanderen','lokeren':'Oost-Vlaanderen',
+  'lovendegem':'Oost-Vlaanderen','maarkedal':'Oost-Vlaanderen','maldegem':'Oost-Vlaanderen','melle':'Oost-Vlaanderen',
+  'merelbeke':'Oost-Vlaanderen','moerbeke':'Oost-Vlaanderen','nazareth':'Oost-Vlaanderen','nevele':'Oost-Vlaanderen',
+  'ninove':'Oost-Vlaanderen','oosterzele':'Oost-Vlaanderen','oudenaarde':'Oost-Vlaanderen','ronse':'Oost-Vlaanderen',
+  'sint-gillis-waas':'Oost-Vlaanderen','sint-laureins':'Oost-Vlaanderen','sint-lievens-houtem':'Oost-Vlaanderen',
+  'sint-martens-latem':'Oost-Vlaanderen','sint-niklaas':'Oost-Vlaanderen','stekene':'Oost-Vlaanderen','temse':'Oost-Vlaanderen',
+  'waarschoot':'Oost-Vlaanderen','wachtebeke':'Oost-Vlaanderen','wetteren':'Oost-Vlaanderen','wichelen':'Oost-Vlaanderen',
+  'zele':'Oost-Vlaanderen','zelzate':'Oost-Vlaanderen','zingem':'Oost-Vlaanderen','zomergem':'Oost-Vlaanderen',
+  'zottegem':'Oost-Vlaanderen','zulte':'Oost-Vlaanderen','zwalm':'Oost-Vlaanderen','wortegem-petegem':'Oost-Vlaanderen',
+  'brugge':'West-Vlaanderen','kortrijk':'West-Vlaanderen','oostende':'West-Vlaanderen','roeselare':'West-Vlaanderen',
+  'ieper':'West-Vlaanderen','waregem':'West-Vlaanderen','menen':'West-Vlaanderen','poperinge':'West-Vlaanderen',
+  'diksmuide':'West-Vlaanderen','veurne':'West-Vlaanderen','blankenberge':'West-Vlaanderen','knokke-heist':'West-Vlaanderen',
+  'tielt':'West-Vlaanderen','izegem':'West-Vlaanderen','harelbeke':'West-Vlaanderen','wevelgem':'West-Vlaanderen',
+  'zwevegem':'West-Vlaanderen','wervik':'West-Vlaanderen',
+  'antwerpen':'Antwerpen','mechelen':'Antwerpen','turnhout':'Antwerpen','mortsel':'Antwerpen','lier':'Antwerpen',
+  'herentals':'Antwerpen','geel':'Antwerpen','kontich':'Antwerpen','boom':'Antwerpen','duffel':'Antwerpen',
+  'schoten':'Antwerpen','wijnegem':'Antwerpen','brasschaat':'Antwerpen','kapellen':'Antwerpen','hoogstraten':'Antwerpen',
+  'heist-op-den-berg':'Antwerpen',
+  'hasselt':'Limburg','genk':'Limburg','sint-truiden':'Limburg','tongeren':'Limburg','beringen':'Limburg',
+  'lommel':'Limburg','bilzen':'Limburg','maasmechelen':'Limburg','dilsen-stokkem':'Limburg','peer':'Limburg',
+  'neerpelt':'Limburg','overpelt':'Limburg','houthalen-helchteren':'Limburg',
+  'leuven':'Vlaams-Brabant','vilvoorde':'Vlaams-Brabant','aarschot':'Vlaams-Brabant','tienen':'Vlaams-Brabant',
+  'diest':'Vlaams-Brabant','halle':'Vlaams-Brabant','dilbeek':'Vlaams-Brabant','zaventem':'Vlaams-Brabant',
+  'grimbergen':'Vlaams-Brabant','asse':'Vlaams-Brabant','tervuren':'Vlaams-Brabant','overijse':'Vlaams-Brabant',
+  'brussel':'Brussel',
+  'charleroi':'Henegouwen','bergen':'Henegouwen','mons':'Henegouwen','doornik':'Henegouwen','tournai':'Henegouwen',
+  'la louvière':'Henegouwen','moeskroen':'Henegouwen','mouscron':'Henegouwen','aat':'Henegouwen','ath':'Henegouwen',
+  'luik':'Luik','liège':'Luik','verviers':'Luik','seraing':'Luik','herstal':'Luik','hoei':'Luik','huy':'Luik',
+  'nijvel':'Waals-Brabant','nivelles':'Waals-Brabant','waver':'Waals-Brabant','wavre':'Waals-Brabant',
+  'namen':'Namen','namur':'Namen','dinant':'Namen','andenne':'Namen',
+  'aarlen':'Luxemburg','arlon':'Luxemburg','marche-en-famenne':'Luxemburg','bastenaken':'Luxemburg','bastogne':'Luxemburg',
+};
+function vulProvincieIn(gemInputId, provSelectId){
+  const el = document.getElementById(gemInputId);
+  if (!el) return;
+  const prov = GEM_PROV[el.value.trim().toLowerCase()];
+  if (prov) document.getElementById(provSelectId).value = prov;
+}
+
 const niveauAfk = z => { const a = z.niveau === 'interprovinciaal' ? 'IP' : z.niveau === 'provinciaal' ? 'PROV' : 'GEW'; return z.niveau_code ? `${a}-Niv ${z.niveau_code}` : a; };
 const NIVEAUS = ['gewestelijk','provinciaal','interprovinciaal'];
 const PROVINCIES = ['Antwerpen','Limburg','Oost-Vlaanderen','Vlaams-Brabant','West-Vlaanderen','Brussel','Henegouwen','Luik','Luxemburg','Namen','Waals-Brabant'];
@@ -2086,7 +2134,7 @@ function vZoekPlaatsen(){
       <p class="sub">Gratis en zonder account. Zoekertjes met een speeldatum in het verleden verdwijnen automatisch uit de lijst.</p>
       <div class="rij">
         <div><label>Clubnaam *</label><input id="z-club" onblur="kapitaliseer(this)"></div>
-        <div><label>Gemeente *</label><input id="z-gemeente"></div>
+        <div><label>Gemeente *</label><input id="z-gemeente" onblur="vulProvincieIn('z-gemeente','z-prov')"></div>
       </div>
       <div class="rij">
         <div><label>Provincie</label><select id="z-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
@@ -2202,7 +2250,7 @@ async function vKalender(){
       </div>
       <div class="rij">
         <div><label>Datum *</label><input id="k-datum" type="date"></div>
-        <div><label>Gemeente *</label><input id="k-gemeente"></div>
+        <div><label>Gemeente *</label><input id="k-gemeente" onblur="vulProvincieIn('k-gemeente','k-prov')"></div>
         <div><label>Provincie</label><select id="k-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       </div>
       <div class="rij">
@@ -2221,12 +2269,12 @@ async function vKalender(){
 
   const vandaag = new Date().toISOString().slice(0,10);
   const [sj, ext] = await Promise.all([
-    sb.from('toernooien').select('naam, slug, datum, locatie, club_logo').eq('status', 'gepubliceerd'),
+    sb.from('toernooien').select('naam, slug, datum, locatie, club_logo, clubs(club_naam)').eq('status', 'gepubliceerd'),
     sb.from('kalender').select('*').eq('status', 'goedgekeurd'),
   ]);
   const items = [];
-  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, plaats: t.locatie, cats: null, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo }); });
-  (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, plaats: [k.club, k.gemeente].filter(Boolean).join(' · '), cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
+  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, club: t.clubs?.club_naam || null, plaats: t.locatie, cats: null, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo }); });
+  (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, club: k.club, plaats: k.gemeente, cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
   items.sort((a,b) => a.datum.localeCompare(b.datum));
 
   $('#kal-lijst').innerHTML = items.length ? items.map(i => `
@@ -2240,6 +2288,7 @@ async function vKalender(){
         </div>
         <div>
           <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${h(i.naam)} ${i.sjotter ? '<span class="badge b-live">op ' + CONFIG.PLATFORM + '</span>' : ''}</h3>
+          ${i.club ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:19px;color:var(--blauw);margin-top:2px">georganiseerd door ${h(i.club)}</p>` : ''}
           <p class="sub">${h(i.plaats||'')}${i.cats ? ' · ' + h(i.cats) : ''}</p>
         </div>
       </div>
