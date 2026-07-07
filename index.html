@@ -2290,6 +2290,11 @@ function tekenZoek(){
             : `<button class="btn btn-p btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button>`}
         </div>
       </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--lijn);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--grijs)">Ben jij de plaatser?</span>
+        <button class="btn btn-o btn-sm" style="font-size:12px;font-weight:700;color:var(--groen);padding:3px 10px" onclick="app.zoekActiePin('${z.id}','gevonden')">✓ Gevonden</button>
+        <button class="btn btn-sm" style="font-size:12px;padding:3px 8px;background:var(--rood-l);color:var(--rood);font-weight:700;border:none" onclick="app.zoekActiePin('${z.id}','verwijder')">✕ Verwijder</button>
+      </div>
     </div>`).join('') || '<div class="kaart"><div class="leeg">Geen zoekertjes gevonden met deze filters. Plaats zelf het eerste!</div></div>';
 }
 
@@ -2319,12 +2324,7 @@ app.stuurBericht = async (id) => {
       van_email: email,
       bericht: tekst,
     });
-    $('#z-c-' + id).innerHTML = `<div class="melding m-ok" style="margin:0;margin-bottom:8px">✓ Bericht verzonden! ${h(z.contact_naam)} antwoordt je rechtstreeks via e-mail.</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      <span style="font-size:12px;color:var(--grijs)">Ben jij de plaatser?</span>
-      <button class="btn btn-o btn-sm" style="font-size:12px;font-weight:700;color:var(--groen);padding:3px 10px" onclick="app.zoekActiePin('${id}','gevonden')">&#10003; Gevonden</button>
-      <button class="btn btn-sm" style="font-size:12px;padding:3px 8px;background:var(--rood-l);color:var(--rood);font-weight:700;border:none" onclick="app.zoekActiePin('${id}','verwijder')">&#10005; Verwijder</button>
-    </div>`;
+    $('#z-c-' + id).innerHTML = `<div class="melding m-ok" style="margin:0">✓ Bericht verzonden! ${h(z.contact_naam)} antwoordt je rechtstreeks via e-mail.</div>`;
     toast('Bericht verzonden ✉');
   } catch(e) { console.error(e); toast('Verzenden mislukt — probeer later opnieuw'); }
 };
@@ -2381,11 +2381,6 @@ app.toonContact = async (id) => {
     <strong>${h(c.naam)}</strong><br>
     <a href="mailto:${h(c.email)}?subject=${encodeURIComponent('Oefenwedstrijd ' + z.categorie + ' — via Sjotter')}">${h(c.email)}</a>
     ${c.telefoon ? '<br>' + h(c.telefoon) : ''}
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--lijn);display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-    <span style="font-size:12px;color:var(--grijs)">Ben jij de plaatser?</span>
-    <button class="btn btn-o btn-sm" style="font-size:12px;font-weight:700;color:var(--groen);padding:3px 10px" onclick="app.zoekActiePin('${id}','gevonden')">&#10003; Gevonden</button>
-    <button class="btn btn-sm" style="font-size:12px;padding:3px 8px;background:var(--rood-l);color:var(--rood);font-weight:700;border:none" onclick="app.zoekActiePin('${id}','verwijder')">&#10005; Verwijder</button>
-  </div>
   </div>`;
 };
 
