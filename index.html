@@ -6,7 +6,7 @@
 <title>Sjotter — jeugdtoernooien organiseren en oefenwedstrijden vinden</title>
 <meta name="description" content="Sjotter — toernooien organiseren en oefenwedstrijden vinden voor jeugdvoetbal. Inschrijvingen, loting, speelschema en live standen.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
@@ -34,6 +34,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14p
 .topbar-in{max-width:1080px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}
 .logo{font-family:'Archivo';font-weight:900;font-size:20px;color:#fff;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .logo .bal{width:22px;height:22px;border-radius:50%;background:#fff;position:relative;display:inline-block}
+.slogan{font-family:'Caveat',cursive;font-weight:700;font-size:19px;color:var(--geel);margin-left:2px;white-space:nowrap}
 .logo .bal::after{content:'';position:absolute;inset:6px;border-radius:2px;background:var(--inkt);clip-path:polygon(50% 0,100% 38%,81% 100%,19% 100%,0 38%)}
 .topbar nav{margin-left:auto;display:flex;gap:8px;align-items:center}
 .topbar nav a,.topbar nav button{color:#fff;font-weight:600;font-size:14px;padding:8px 14px;border-radius:8px;background:transparent;border:none}
@@ -68,6 +69,8 @@ td.num,th.num{text-align:center;width:42px}
 .score{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;white-space:nowrap}
 .score input{width:46px;text-align:center;padding:6px 4px;font-family:'IBM Plex Mono',monospace;font-weight:600}
 .badge{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
+.b-beta{background:#FDF0D5;color:#8A5A0A}
+.beta-strook{background:#FDF0D5;color:#6B4108;text-align:center;font-size:13px;font-weight:600;padding:9px 16px}
 .b-concept{background:#EEE;color:var(--grijs)}
 .b-live{background:var(--gras-l);color:var(--groen)}
 .b-geel{background:#FBF3D9;color:#8A6D10}
@@ -191,11 +194,10 @@ td.num,th.num{text-align:center;width:42px}
   .w-tabel td.c-score{margin-left:auto;order:5}
   .topbar-in{flex-wrap:wrap;padding:10px 14px;height:auto;row-gap:8px}
   .logo{flex:0 0 auto;font-size:16px}
+  .slogan{display:none}
   .logo .bal{width:20px;height:20px}
   .topbar nav{flex:1 1 100%;order:2;flex-wrap:wrap;gap:6px;justify-content:flex-end}
   .topbar nav a.nav-pil,.topbar nav button.nav-pil{padding:6px 12px;font-size:12px}
-  .topbar nav .pil-blauw,.topbar nav .pil-wit{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff}
-  .topbar nav .pil-blauw:hover,.topbar nav .pil-wit:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.7)}
   .topbar nav .pil-groen{box-shadow:0 2px 8px rgba(34,160,90,.35)}
   .sj-footer{padding:14px 16px;font-size:11.5px;line-height:1.6}
   .kaart{padding:16px}
@@ -313,6 +315,7 @@ function topbar(){
   const ingelogd = !!sessie;
   return `<header class="topbar"><div class="topbar-in">
     <a href="#/" class="logo"><span class="bal"></span><span class="logo-tekst">${CONFIG.PLATFORM}</span></a>
+    <span class="slogan">Altijd een match</span>
     <nav>
       ${ingelogd ? `
         <a href="#/wedstrijden" class="nav-pil pil-blauw">Oefenwedstrijden</a>
@@ -336,7 +339,7 @@ function vLanding(){
   <div class="split">
     <section class="paneel paneel-t">
       <div class="tag">Voor clubs en organisatoren</div>
-      <h2>Organiseer je jeugdtoernooi</h2>
+      <h2>Organiseer je jeugdtoernooi <span class="badge b-beta" style="vertical-align:middle;font-size:11px">Bèta</span></h2>
       <p class="lead">Van online inschrijvingen tot de eindstand \u2014 alles op \u00e9\u00e9n plek, klaar in enkele minuten.</p>
       <ul>
         <li>Online inschrijvingen per leeftijdscategorie</li>
@@ -433,6 +436,7 @@ async function vDashboard(){
   if (error) return fout(error);
 
   root().innerHTML = topbar() + `<div class="wrap">
+    <div class="beta-strook" style="border-radius:10px;margin-bottom:16px">🧪 Het toernooiluik draait in bèta — we testen en verbeteren nog volop. Kleine builtjes zijn mogelijk; feedback is welkom via <a href="#/help" style="color:inherit;text-decoration:underline">Help & contact</a>.</div>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div><h2 style="font-size:26px">${h(club?.club_naam || 'Mijn club')}</h2><p class="sub" style="color:var(--grijs);font-size:13.5px">Je toernooien</p></div>
       <button class="btn btn-p" onclick="app.nieuwToernooi()">+ Nieuw toernooi</button>
@@ -510,6 +514,7 @@ async function vBeheer(id, tab){
       <div class="stat"><div class="n">${d.teams.length}</div><div class="l">Ploegen</div></div>
       <div class="stat"><div class="n">${d.wed.length}</div><div class="l">Wedstrijden</div></div>
     </div>
+    <div class="beta-strook" style="border-radius:10px;margin-top:16px">🧪 Bèta — dit onderdeel wordt nog getest. Bewaar belangrijke gegevens ook elders tot de volledige lancering.</div>
     <div class="tabs">
       ${[['instellingen','Instellingen'],['categorieen','Categorieën'],['teams','Ploegen'],['loting','Loting'],['schema','Schema'],['uitslagen','Uitslagen'],['scheids','Scheidsrechters'],['sponsors','Sponsors'],['publicatie','Publicatie & betaling']]
         .map(([k,l]) => `<a href="${T(k)}" class="${tab===k?'act':''}">${l}</a>`).join('')}
@@ -1250,6 +1255,7 @@ async function vPubliek(slug, tab, extra){
   const kleur = veiligeKleur(t.kleur);
   root().innerHTML = topbar() + `
   ${kleur ? `<style>#root .hero{background:${kleur}} #root .poule-kop{background:${kleur}}</style>` : ''}
+  <div class="beta-strook">🧪 Dit toernooi draait op de bètaversie van ${CONFIG.PLATFORM} — we testen nog volop.</div>
   <section class="hero" style="padding:44px 20px 50px"><div class="hero-in">
     ${t.club_logo ? `<img src="${h(t.club_logo)}" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.3);background:#fff;margin-bottom:14px">` : ''}
     <h1 style="font-size:clamp(26px,5vw,42px)">${h(t.naam)}</h1>
