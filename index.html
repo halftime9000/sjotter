@@ -2272,14 +2272,12 @@ function tekenZoek(){
           ${z.opmerking ? `<p style="font-size:14px;margin-top:8px">${h(z.opmerking)}</p>` : ''}
         </div>
         </div>
-        <div id="z-c-${z.id}" style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <div id="z-c-${z.id}" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:220px">
           ${z.contact_voorkeur === 'bericht'
             ? `<button class="btn btn-b btn-sm" onclick="app.toonBerichtForm('${z.id}')">✉ Stuur een bericht</button>`
             : `<button class="btn btn-o btn-sm" onclick="app.toonContact('${z.id}')">Toon contact</button>`}
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-o btn-sm" style="padding:5px 9px;font-size:12px" onclick="app.zoekActiePin('${z.id}','gevonden')" title="Markeer als gevonden">✓ Gevonden</button>
-            <button class="btn btn-o btn-sm" style="padding:5px 9px;font-size:12px" onclick="app.zoekActiePin('${z.id}','verwijder')" title="Verwijderen">✕</button>
-          </div>
+          <button class="btn btn-o" style="padding:3px 8px;font-size:10.5px" onclick="app.zoekActiePin('${z.id}','gevonden')" title="Markeer als gevonden">✓ Gevonden</button>
+          <button class="btn btn-o" style="padding:3px 8px;font-size:10.5px" onclick="app.zoekActiePin('${z.id}','verwijder')" title="Verwijderen">✕</button>
         </div>
       </div>
     </div>`).join('') || '<div class="kaart"><div class="leeg">Geen zoekertjes gevonden met deze filters. Plaats zelf het eerste!</div></div>';
