@@ -219,7 +219,6 @@ td.num,th.num{text-align:center;width:42px}
 const CONFIG = {
   SUPABASE_URL: 'https://equmwyvxbjjocwetwfcw.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_wLF8ZNLFbiWM8YGrEnzjXQ_Aon8llxh',
-  SUPER_ADMIN_UID: '95fca7a8-1e59-4158-9414-780704d96fe3',
   PLATFORM: 'Sjotter',
   PRIJS: 29,
   IBAN: 'BE00 0000 0000 0000',
@@ -249,7 +248,13 @@ function datumNL(d){ if(!d) return '—'; return new Date(d+'T00:00').toLocaleDa
 function shuffle(a){ const x=[...a]; for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]];} return x; }
 function teamNaam(t){ return t ? h(t.club_naam + (t.team_naam ? ' ' + t.team_naam : '')) : '—'; }
 function teamHtml(t){ if (!t) return '—'; return (t.logo_url ? `<img class="tlogo" src="${h(t.logo_url)}" alt="">` : '') + teamNaam(t); }
-const isAdmin = () => sessie && sessie.user.id === CONFIG.SUPER_ADMIN_UID;
+let _isAdmin = false;
+const isAdmin = () => _isAdmin;
+async function verversAdminStatus(){
+  if (!sessie) { _isAdmin = false; return; }
+  const { data, error } = await sb.rpc('is_super_admin');
+  _isAdmin = !error && data === true;
+}
 const veiligeKleur = k => (typeof k === 'string' && /^#[0-9a-fA-F]{6}$/.test(k)) ? k : null;
 
 async function uploadLogo(file, maat = 128){
@@ -278,7 +283,8 @@ async function boot(){
     sessie = null;
     localStorage.removeItem('sjotter_tijdelijk');
   }
-  sb.auth.onAuthStateChange((_e, s) => { sessie = s; });
+  await verversAdminStatus();
+  sb.auth.onAuthStateChange(async (_e, s) => { sessie = s; await verversAdminStatus(); });
   render();
 }
 
@@ -1571,7 +1577,7 @@ async function vAdmin(){
         <td>${h(c.email||'—')}</td>
         <td>${(c.created_at||'').slice(0,10)}</td>
         <td class="num">${(ts.data||[]).filter(t=>t.club_id===c.id).length}</td>
-        <td style="text-align:right;white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkClub('${c.id}')">✎</button> ${c.id === CONFIG.SUPER_ADMIN_UID ? '<span class="badge b-geel">admin</span>' : `<button class="btn btn-r btn-sm" onclick="app.adminVerwijderClub('${c.id}')">✕</button>`}</td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkClub('${c.id}')">✎</button> ${c.id === sessie.user.id ? '<span class="badge b-geel">admin</span>' : `<button class="btn btn-r btn-sm" onclick="app.adminVerwijderClub('${c.id}')">✕</button>`}</td>
       </tr>`).join('')}
       </table>
     </div>
@@ -2306,6 +2312,7 @@ app.zoekActiePin = async (id, actie) => {
   if (error) return fout(error);
   if (!data) return toast('Onjuiste pincode');
   toast(actie === 'gevonden' ? 'Gemarkeerd als gevonden ✓' : 'Zoekertje verwijderd');
+  if (actie === 'gevonden') setTimeout(() => toast('Vergeet niet de wedstrijd aan te vragen via E-Kickoff (RBFA) ⚽'), 2600);
   render();
 };
 
@@ -2404,6 +2411,7 @@ app.plaatsZoekertje = async () => {
         <a class="btn btn-b" href="#/wedstrijden">Bekijk alle zoekertjes</a>
         <a class="btn btn-o" href="#/wedstrijden/plaatsen">Nog een zoekertje plaatsen</a>
       </div>
+      <p class="sub" style="margin-top:16px;text-align:left">⚽ Tegenstander gevonden? Gebruik je pincode of beheerlink om je zoekertje meteen te markeren als “gevonden” — zo weten andere trainers dat het niet meer vrij is.</p>
     </div>
   </div>` + voet();
   toast('Zoekertje geplaatst \u26bd');
@@ -2416,7 +2424,7 @@ async function vZoekBeheer(id, code){
   $('#z-beheer').innerHTML = `
     <h3>Beheer zoekertje</h3>
     <p class="sub">${h(z.club_naam)} · ${h(z.categorie)} ${h(z.niveau)} · ${z.flexibel || !z.datum ? 'datum in overleg' : datumNL(z.datum)}</p>
-    <p style="margin-top:10px">Status: <span class="badge ${z.status === 'open' ? 'b-live' : 'b-concept'}">${h(z.status)}</span></p>
+    <p style="margin-top:10px;font-size:12.5px;color:var(--grijs)">${z.status === 'open' ? 'open' : 'gevonden✅'}</p>
     <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
       ${z.status === 'open' ? `<button class="btn btn-b" onclick="app.zoekActie('${h(id)}','${h(code)}','gevonden')">✓ Tegenstander gevonden</button>` : ''}
       <button class="btn btn-r" onclick="app.zoekActie('${h(id)}','${h(code)}','verwijder')">Verwijder zoekertje</button>
@@ -2429,6 +2437,7 @@ app.zoekActie = async (id, code, actie) => {
   if (error) return fout(error);
   if (!data) return toast('Ongeldige beheerlink');
   toast(actie === 'gevonden' ? 'Gemarkeerd als gevonden ✓' : 'Zoekertje verwijderd');
+  if (actie === 'gevonden') setTimeout(() => toast('Vergeet niet de wedstrijd aan te vragen via E-Kickoff (RBFA) ⚽'), 2600);
   location.hash = '#/wedstrijden';
 };
 
