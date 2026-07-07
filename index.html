@@ -194,7 +194,7 @@ td.num,th.num{text-align:center;width:42px}
   .w-tabel td.c-score{margin-left:auto;order:5}
   .topbar-in{flex-wrap:wrap;padding:10px 14px;height:auto;row-gap:8px}
   .logo{flex:0 0 auto;font-size:16px}
-  .slogan{display:none}
+  .slogan{font-size:15px}
   .logo .bal{width:20px;height:20px}
   .topbar nav{flex:1 1 100%;order:2;flex-wrap:wrap;gap:6px;justify-content:flex-end}
   .topbar nav a.nav-pil,.topbar nav button.nav-pil{padding:6px 12px;font-size:12px}
@@ -2141,7 +2141,11 @@ async function vKalender(){
         <div><label>Provincie</label><select id="k-prov">${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       </div>
       <div class="rij">
-        <div><label>Categorieën (bv. U8, U10, U12)</label><input id="k-cats"></div>
+        <div style="flex:1 1 100%"><label>Categorieën</label>
+          <div style="display:flex;gap:6px 14px;flex-wrap:wrap;background:var(--wit);border:1px solid var(--lijn);border-radius:8px;padding:10px 12px">
+            ${CATS.map(c => `<label style="display:flex;align-items:center;gap:5px;text-transform:none;font-size:13.5px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" class="k-cat" value="${c}" style="width:auto"> ${c}</label>`).join('')}
+          </div>
+        </div>
         <div><label>Link (website / inschrijving)</label><input id="k-link"></div>
       </div>
       <label>Clublogo (optioneel)</label><input id="k-logo" type="file" accept="image/*">
@@ -2183,12 +2187,13 @@ async function vKalender(){
 app.kalenderToevoegen = async () => {
   const v = id => $('#' + id).value.trim();
   if (!v('k-naam') || !v('k-club') || !v('k-datum') || !v('k-gemeente')) return toast('Vul de verplichte velden in (*)');
+  const cats = [...document.querySelectorAll('.k-cat:checked')].map(x => x.value).join(', ') || null;
   let club_logo = null;
   const f = $('#k-logo').files[0];
   if (f) { try { club_logo = await uploadLogo(f); } catch(e){ return fout(e); } }
   const { error } = await sb.from('kalender').insert({
     naam: v('k-naam'), club: v('k-club'), datum: v('k-datum'), gemeente: v('k-gemeente'),
-    provincie: $('#k-prov').value, categorieen: v('k-cats') || null, link: v('k-link') || null, club_logo,
+    provincie: $('#k-prov').value, categorieen: cats, link: v('k-link') || null, club_logo,
   });
   if (error) return fout(error);
   $('#k-melding').innerHTML = '<div class="melding m-ok">✓ Bedankt! Je toernooi wordt kort nagekeken en verschijnt daarna in de kalender.</div>';
