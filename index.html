@@ -180,7 +180,7 @@ td.num,th.num{text-align:center;width:42px}
 .paneel li::before{content:'✓';font-weight:800;color:var(--geel)}
 .paneel-w li::before{color:#9BBCF5}
 .paneel .btn{align-self:flex-start;font-size:15.5px;padding:13px 26px}
-@media(max-width:860px){.split{grid-template-columns:1fr;min-height:auto}.paneel{padding:52px 24px}.split>.b-beta{top:52px;left:24px}}
+@media(max-width:860px){.split{grid-template-columns:1fr;min-height:auto}.paneel{padding:52px 24px}}
 @media print{
   .topbar,.tabs,.btn,select,.stat-rij,#toast,footer,details,.melding{display:none !important}
   body{background:#fff}
@@ -341,9 +341,8 @@ function topbar(){
 function vLanding(){
   root().innerHTML = topbar() + `
   <div class="split">
-    <span class="badge b-beta" style="position:absolute;top:76px;left:52px;z-index:5">Bèta</span>
     <section class="paneel paneel-t">
-      <div class="tag">Voor clubs en organisatoren</div>
+      <div class="tag" style="display:flex;align-items:center;gap:8px">Voor clubs en organisatoren <span class="badge b-beta" style="font-size:9px;padding:2px 7px;line-height:1.4;text-transform:none;letter-spacing:0">B\u00e8ta</span></div>
       <h2>Organiseer je jeugdtoernooi</h2>
       <p class="lead">Van online inschrijvingen tot de eindstand \u2014 alles op \u00e9\u00e9n plek, klaar in enkele minuten.</p>
       <ul>
