@@ -586,20 +586,20 @@ function tabInstellingen(el, d){
   el.innerHTML = `
   <div class="kaart">
     <h3>Algemeen</h3>
-    <div class="rij">
+    <div class="rij" style="align-items:flex-end">
       <div><label>Naam</label><input id="i-naam" value="${h(t.naam)}"></div>
       <div><label>Startdatum</label><input id="i-datum" type="date" value="${t.datum||''}"></div>
-      <div><label>Einddatum (optioneel, meerdaags toernooi)</label><input id="i-einddatum" type="date" value="${t.einddatum||''}"></div>
+      <div><label>Einddatum <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="i-einddatum" type="date" value="${t.einddatum||''}"></div>
     </div>
-    <div class="rij">
+    <div class="rij" style="align-items:flex-end">
       <div><label>Locatie</label><input id="i-locatie" value="${h(t.locatie||'')}"></div>
       <div><label>Provincie</label><select id="i-prov"><option value="">\u2014</option>${PROVINCIES.map(p=>`<option ${p===t.provincie?'selected':''}>${p}</option>`).join('')}</select></div>
-      <div><label>Contact e-mail (publiek)</label><input id="i-email" value="${h(t.contact_email||'')}"></div>
+      <div><label>Contact e-mail <span style="font-weight:400;text-transform:none;letter-spacing:0">(publiek)</span></label><input id="i-email" value="${h(t.contact_email||'')}"></div>
     </div>
-    <label>Beschrijving (publieke pagina)</label>
+    <label>Beschrijving <span style="font-weight:400;text-transform:none;letter-spacing:0">(publieke pagina)</span></label>
     <textarea id="i-beschrijving" rows="3">${h(t.beschrijving||'')}</textarea>
-    <div class="rij" style="margin-top:4px">
-      <div style="flex:0 0 auto;min-width:auto"><label>Clubkleur (publieke pagina & TV)</label>
+    <div class="rij" style="align-items:flex-end;margin-top:4px">
+      <div style="flex:0 0 auto;min-width:auto"><label>Clubkleur</label>
         <input id="i-kleur" type="color" value="${veiligeKleur(t.kleur) || '#0D3B20'}" style="width:70px;height:42px;padding:3px;cursor:pointer"></div>
       <div><label>Clublogo</label>
         ${t.club_logo ? `<div style="display:flex;align-items:center;gap:10px"><img src="${h(t.club_logo)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--lijn);background:#fff"><button class="btn btn-o btn-sm" onclick="app.verwijderClublogo('${t.id}')">Verwijderen</button></div>`
@@ -609,15 +609,15 @@ function tabInstellingen(el, d){
   <div class="kaart">
     <h3>Speelschema-instellingen</h3>
     <p class="sub">Deze bepalen hoe het schema gegenereerd wordt.</p>
-    <div class="rij">
+    <div class="rij" style="align-items:flex-end">
       <div><label>Aantal velden</label><input id="i-velden" type="number" min="1" max="12" value="${t.aantal_velden}"></div>
-      <div><label>Wedstrijdduur (min)</label><input id="i-duur" type="number" min="5" max="60" value="${t.wedstrijdduur}"></div>
-      <div><label>Pauze tussen wedstrijden (min)</label><input id="i-pauze" type="number" min="0" max="30" value="${t.pauze}"></div>
+      <div><label>Wedstrijdduur <span style="font-weight:400;text-transform:none;letter-spacing:0">(min)</span></label><input id="i-duur" type="number" min="5" max="60" value="${t.wedstrijdduur}"></div>
+      <div><label>Pauze <span style="font-weight:400;text-transform:none;letter-spacing:0">(min)</span></label><input id="i-pauze" type="number" min="0" max="30" value="${t.pauze}"></div>
       <div><label>Starttijd</label><input id="i-start" type="time" value="${t.starttijd}"></div>
     </div>
-    <div class="rij">
-      <div><label>Middagpauze vanaf (optioneel)</label><input id="i-pstart" type="time" value="${t.pauze_start||''}"></div>
-      <div><label>Duur middagpauze (min)</label><input id="i-pduur" type="number" min="5" max="120" value="${t.pauze_duur||''}"></div>
+    <div class="rij" style="align-items:flex-end">
+      <div><label>Middagpauze vanaf <span style="font-weight:400;text-transform:none;letter-spacing:0">(opt.)</span></label><input id="i-pstart" type="time" value="${t.pauze_start||''}"></div>
+      <div><label>Duur middagpauze <span style="font-weight:400;text-transform:none;letter-spacing:0">(min)</span></label><input id="i-pduur" type="number" min="5" max="120" value="${t.pauze_duur||''}"></div>
     </div>
     <label>Rangschikking in poules — bij gelijke punten beslissen deze criteria, in deze volgorde</label>
     <div id="rang-lijst" style="max-width:420px"></div>
