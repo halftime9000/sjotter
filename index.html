@@ -293,6 +293,7 @@ async function render(){
   const hash = location.hash.replace(/^#\/?/, '');
   const p = hash.split('/');
   window.scrollTo(0,0);
+  sb.from('bezoeken').insert({ pad: '/' + hash }).then(()=>{});
   try {
     if (p[0] === 'login') return vAuth('login');
     if (p[0] === 'wachtwoord') return vWachtwoordVergeten();
@@ -1488,11 +1489,16 @@ function pubTeam(el, d, teamId){
 async function vAdmin(){
   if (!isAdmin()) return location.hash = '#/';
   root().innerHTML = topbar() + `<div class="wrap"><div class="leeg">Laden…</div></div>`;
-  const [ts, cs, zs, ks] = await Promise.all([
+  const vandaag2 = new Date().toISOString().slice(0,10);
+  const zevenDagenTerug = new Date(Date.now() - 7*86400000).toISOString().slice(0,10);
+  const [ts, cs, zs, ks, bzVandaag, bz7d, bzTotaal] = await Promise.all([
     sb.from('toernooien').select('*').order('created_at', { ascending: false }),
     sb.from('clubs').select('*').order('created_at', { ascending: false }),
     sb.from('zoekertjes').select('*').order('created_at', { ascending: false }),
     sb.from('kalender').select('*').order('datum'),
+    sb.from('bezoeken').select('*', { count: 'exact', head: true }).eq('dag', vandaag2),
+    sb.from('bezoeken').select('*', { count: 'exact', head: true }).gte('dag', zevenDagenTerug),
+    sb.from('bezoeken').select('*', { count: 'exact', head: true }),
   ]);
   if (ts.error) return fout(ts.error);
   const clubMap = Object.fromEntries((cs.data||[]).map(c => [c.id, c]));
@@ -1506,6 +1512,11 @@ async function vAdmin(){
       <div class="stat"><div class="n">${(zs.data||[]).length}</div><div class="l">Zoekertjes</div></div>
       <div class="stat"><div class="n">${teBetalen}</div><div class="l">Wachten op betaling</div></div>
       <div class="stat"><div class="n">€ ${(ts.data||[]).filter(t=>t.betaald).length * CONFIG.PRIJS}</div><div class="l">Omzet</div></div>
+    </div>
+    <div class="stat-rij" style="margin-top:4px">
+      <div class="stat"><div class="n">${bzVandaag.count||0}</div><div class="l">Bezoeken vandaag</div></div>
+      <div class="stat"><div class="n">${bz7d.count||0}</div><div class="l">Bezoeken laatste 7 dagen</div></div>
+      <div class="stat"><div class="n">${bzTotaal.count||0}</div><div class="l">Bezoeken totaal</div></div>
     </div>
 
     <div class="kaart" style="margin-top:16px">
