@@ -23,9 +23,11 @@ html{scroll-behavior:smooth}
 html,body{overflow-x:hidden;max-width:100%}
 body{font-family:'Inter',sans-serif;background:var(--papier);color:var(--inkt);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
 h1,h2,h3,h4{font-family:'Archivo',sans-serif;letter-spacing:-.01em;line-height:1.15}
+.kaart h3:first-of-type{border-left:4px solid var(--gras);padding-left:12px;margin-bottom:16px;font-size:17px}
 a{color:var(--groen);text-decoration:none}
 button{font-family:inherit;cursor:pointer}
-input,select,textarea{font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--lijn);border-radius:8px;background:var(--wit);width:100%;color:var(--inkt)}
+input,select,textarea{font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--lijn);border-radius:8px;background:var(--wit);width:100%;color:var(--inkt);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gras);box-shadow:0 0 0 3px rgba(46,138,79,.14)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--gras);outline-offset:1px;border-color:var(--gras)}
 label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.04em}
 .mono{font-family:'IBM Plex Mono',monospace}
@@ -45,7 +47,8 @@ label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14p
 
 /* ---------- knoppen ---------- */
 .btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;font-weight:700;font-size:14px;padding:11px 20px;border-radius:9px;border:none;transition:.15s}
-.btn-p{background:var(--gras);color:#fff}
+.btn-p{background:var(--gras);color:#fff;box-shadow:0 1px 3px rgba(46,138,79,.25)}
+.btn-p:hover{background:var(--groen)}
 .btn-p:hover{background:#1B8A4C}
 .btn-d{background:var(--groen-d);color:#fff}
 .btn-d:hover{background:#0A2E19}
@@ -78,9 +81,10 @@ td.num,th.num{text-align:center;width:42px}
 .b-rood{background:var(--rood-l);color:var(--rood)}
 
 /* ---------- tabs ---------- */
-.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--lijn);margin:18px 0 22px}
-.tabs a{padding:9px 14px;font-weight:600;font-size:14px;color:var(--grijs);border-radius:8px 8px 0 0;border-bottom:2px solid transparent;margin-bottom:-2px}
-.tabs a.act{color:var(--groen);border-bottom-color:var(--gras);background:var(--wit)}
+.tabs{display:flex;gap:3px;flex-wrap:wrap;background:var(--papier);border:1px solid var(--lijn);border-radius:11px;padding:4px;margin:18px 0 22px}
+.tabs a{padding:9px 15px;font-weight:600;font-size:13.5px;color:var(--grijs);border-radius:8px;transition:.15s;border-bottom:none}
+.tabs a:hover{color:var(--inkt);background:rgba(0,0,0,.03)}
+.tabs a.act{color:#fff;background:var(--groen-d);box-shadow:0 2px 6px rgba(13,59,32,.25)}
 
 /* ---------- landing ---------- */
 .hero{background:var(--groen-d);color:#fff;padding:70px 20px 84px;position:relative;overflow:hidden}
@@ -567,9 +571,9 @@ async function vBeheer(id, tab){
   const tel = c => d.teams.filter(x => x.categorie_id === c.id).length;
 
   root().innerHTML = topbar() + `<div class="wrap">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;border-left:4px solid var(--gras);padding-left:14px">
       <div>
-        <h2 style="font-size:24px">${h(t.naam)}</h2>
+        <h2 style="font-size:26px">🏆 ${h(t.naam)}</h2>
         <p class="sub" style="color:var(--grijs);font-size:13.5px">${datumNL(t.datum)} · ${h(t.locatie||'—')}</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -578,9 +582,9 @@ async function vBeheer(id, tab){
       </div>
     </div>
     <div class="stat-rij">
-      <div class="stat"><div class="n">${d.cats.length}</div><div class="l">Categorieën</div></div>
-      <div class="stat"><div class="n">${d.teams.length}</div><div class="l">Ploegen</div></div>
-      <div class="stat"><div class="n">${d.wed.length}</div><div class="l">Wedstrijden</div></div>
+      <div class="stat" style="background:var(--gras-l);border-color:#B9E3C6"><div class="n" style="display:flex;align-items:center;gap:6px"><span style="font-size:18px">📁</span>${d.cats.length}</div><div class="l" style="color:var(--groen)">Categorieën</div></div>
+      <div class="stat" style="background:#E8EFFB;border-color:#C9D9F2"><div class="n" style="color:var(--blauw-d);display:flex;align-items:center;gap:6px"><span style="font-size:18px">👕</span>${d.teams.length}</div><div class="l" style="color:var(--blauw)">Ploegen</div></div>
+      <div class="stat" style="background:#FCF3E3;border-color:#F0DCAE"><div class="n" style="color:#8A5A00;display:flex;align-items:center;gap:6px"><span style="font-size:18px">⚽</span>${d.wed.length}</div><div class="l" style="color:#A5730A">Wedstrijden</div></div>
     </div>
     <div class="beta-strook" style="border-radius:10px;margin-top:16px">🧪 Bèta — dit onderdeel wordt nog getest. Bewaar belangrijke gegevens ook elders tot de volledige lancering.</div>
     <div class="tabs">
@@ -607,7 +611,7 @@ function tabInstellingen(el, d){ window._bewaarClubId = d.t.club_id;
   const { t } = d;
   el.innerHTML = `
   <div class="kaart">
-    <h3>Algemeen</h3>
+    <h3>⚙️ Algemeen</h3>
     <div class="rij" style="align-items:flex-end">
       <div><label>Naam toernooi</label><input id="i-naam" value="${h(t.naam)}"></div>
       <div><label>Naam organiserende club</label><input id="i-clubnaam" value="${h(t._club_naam||mijnClub?.club_naam||'')}"></div>
@@ -640,7 +644,7 @@ function tabInstellingen(el, d){ window._bewaarClubId = d.t.club_id;
     </div>
   </div>
   <div class="kaart">
-    <h3>Speelschema-instellingen</h3>
+    <h3>⏱️ Speelschema-instellingen</h3>
     <p class="sub">Deze bepalen hoe het schema gegenereerd wordt.</p>
     <div class="rij" style="align-items:flex-end">
       <div><label>Aantal velden</label><input id="i-velden" type="number" min="1" max="12" value="${t.aantal_velden}"></div>
@@ -656,7 +660,7 @@ function tabInstellingen(el, d){ window._bewaarClubId = d.t.club_id;
     <div id="rang-lijst" style="max-width:420px"></div>
   </div>
   <div class="kaart">
-    <h3>Inschrijvingen</h3>
+    <h3>📝 Inschrijvingen</h3>
     <div class="rij">
       <div><label>Inschrijvingen open</label>
         <select id="i-open"><option value="true" ${t.inschrijving_open?'selected':''}>Open</option><option value="false" ${!t.inschrijving_open?'selected':''}>Gesloten</option></select></div>
@@ -772,7 +776,7 @@ function tabCategorieen(el, d){
   }).join('');
   el.innerHTML = `
   <div class="kaart">
-    <h3>Leeftijdscategorieën</h3>
+    <h3>📁 Leeftijdscategorieën</h3>
     <p class="sub">Bv. U8, U9, U10… Ploegen schrijven zich per categorie in.</p>
     ${d.cats.length ? `<table style="margin-top:12px">
       <tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th class="num" style="color:var(--grijs)">Per poule</th><th>Starttijd</th>${meerdaags ? '<th class="num">Dag</th>' : ''}<th></th></tr>
@@ -888,7 +892,7 @@ async function tabTeams(el, d){
   ${d.cats.map(c => {
     const ts = d.teams.filter(x => x.categorie_id === c.id);
     return `<div class="kaart">
-      <h3>${h(c.naam)} <span class="sub" style="font-weight:400">(${ts.length}/${c.max_teams} ploegen)</span></h3>
+      <h3>👕 ${h(c.naam)} <span class="sub" style="font-weight:400">(${ts.length}/${c.max_teams} ploegen)</span></h3>
       ${ts.length ? `<table style="margin-top:10px"><tr><th>Ploeg</th><th>Stamnr</th><th>Contact</th><th>Poule</th><th></th></tr>
         ${ts.map(t => { const ct = cMap[t.id];
           return `<tr>
@@ -948,7 +952,7 @@ function tabLoting(el, d){
     const zonder = ts.filter(t => !t.poule).length;
     return `<div class="kaart">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <h3>${h(c.naam)} <span class="sub" style="font-weight:400">${ts.length} ploegen · ${c.aantal_poules} poule(s)</span></h3>
+        <h3>🎲 ${h(c.naam)} <span class="sub" style="font-weight:400">${ts.length} ploegen · ${c.aantal_poules} poule(s)</span></h3>
         <button class="btn btn-p btn-sm" onclick="app.loting('${c.id}')" ${ts.length<2?'disabled':''}>🎲 Loting uitvoeren</button>
       </div>
       ${zonder ? `<div class="melding m-info">${zonder} ploeg(en) nog zonder poule — voer de loting uit.</div>` : ''}
@@ -1088,7 +1092,7 @@ function tabSchema(el, d){
   el.innerHTML = `
   <div class="kaart">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-      <div><h3>Speelschema</h3>
+      <div><h3>📅 Speelschema</h3>
       <p class="sub">${t.aantal_velden} veld(en) · ${t.wedstrijdduur} min + ${t.pauze} min pauze · start ${t.starttijd}${eind ? ' · laatste aftrap ' + eind : ''}${t.einddatum ? ' · meerdaags toernooi' : ''}</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-p btn-sm" onclick="app.genereerSchema()">${d.wed.length ? '↻ Schema opnieuw genereren' : '⚙ Schema genereren'}</button>
@@ -1353,7 +1357,7 @@ function tabUitslagen(el, d){
     if (!ws.length) return '';
     const letters = [...new Set(d.teams.filter(x=>x.categorie_id===c.id&&x.poule).map(x=>x.poule))].sort();
     return `<div class="kaart">
-      <h3>${h(c.naam)}</h3>
+      <h3>⚽ ${h(c.naam)}</h3>
       <table class="w-tabel" style="margin-top:10px"><tr><th>Tijd</th><th></th><th>Wedstrijd</th><th style="text-align:center">Score</th></tr>
       ${ws.map(w => `<tr>
         <td class="c-tijd"><span class="tijd">${w.starttijd||'—'}</span></td>
@@ -1396,7 +1400,7 @@ function tabPublicatie(el, d){
   const url = location.origin + location.pathname + '#/p/' + t.slug;
   el.innerHTML = `
   <div class="kaart">
-    <h3>1 · Betaling</h3>
+    <h3>💳 1 · Betaling</h3>
     ${t.betaald ? `<div class="melding m-ok">✓ Betaling ontvangen — je kan publiceren.</div>` : `
       <p class="sub" style="margin-top:6px">Publiceren kost eenmalig <strong>€ ${CONFIG.PRIJS}</strong> per toernooi. Aanmaken, categorieën instellen en testen is gratis.</p>
       <label>Overschrijving naar</label>
@@ -1410,7 +1414,7 @@ function tabPublicatie(el, d){
     `}
   </div>
   <div class="kaart">
-    <h3>2 · Publiceren</h3>
+    <h3>🚀 2 · Publiceren</h3>
     <p class="sub">Publiceren zet je toernooi online: clubs kunnen inschrijven via de publieke link en volgen schema & standen live.</p>
     ${t.status === 'gepubliceerd' ? `
       <div class="melding m-ok">🟢 Je toernooi staat live.</div>
@@ -2155,7 +2159,7 @@ async function tabScheids(el, d){
   el.innerHTML = `
   <div class="kaart">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
-      <div><h3>Scheidsrechters</h3>
+      <div><h3>🟨 Scheidsrechters</h3>
       <p class="sub">Elke scheidsrechter krijgt een persoonlijke link: daarop ziet hij enkel zijn eigen wedstrijden en kan hij zelf de scores ingeven. Fijnregelen kan altijd per wedstrijd in het tabblad Schema.</p></div>
       ${d.scheids.length && d.wed.length ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select id="sr-modus" style="width:auto;padding:8px 10px;font-size:13px">
@@ -2319,7 +2323,7 @@ async function tabSponsors(el, d){
   const { data: sps } = await sb.from('sponsors').select('*').eq('toernooi_id', d.t.id).order('volgorde').order('naam');
   el.innerHTML = `
   <div class="kaart">
-    <h3>Sponsors</h3>
+    <h3>🤝 Sponsors</h3>
     <p class="sub">Sponsors verschijnen onderaan de publieke toernooipagina, met logo en link naar hun website.</p>
     ${(sps||[]).length ? `<table style="margin-top:12px"><tr><th></th><th>Naam</th><th>Website</th><th></th></tr>
       ${sps.map(s => `<tr>
