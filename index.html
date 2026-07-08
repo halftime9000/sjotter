@@ -520,15 +520,20 @@ app.nieuwToernooi = async () => {
    BEHEER — data laden
    ============================================================ */
 async function laadToernooi(id){
-  const [t, cats, teams, wed, srs] = await Promise.all([
-    sb.from('toernooien').select('*, clubs(club_naam)').eq('id', id).single(),
+  const t = await sb.from('toernooien').select('*').eq('id', id).single();
+  if (t.error) throw t.error;
+  const [cats, teams, wed, srs, club] = await Promise.all([
     sb.from('categorieen').select('*').eq('toernooi_id', id).order('volgorde').order('naam'),
     sb.from('teams').select('*').eq('toernooi_id', id).order('created_at'),
     sb.from('wedstrijden').select('*').eq('toernooi_id', id).order('volgorde'),
     sb.from('scheidsrechters').select('*').eq('toernooi_id', id).order('naam'),
+    sb.from('clubs').select('club_naam').eq('id', t.data.club_id).maybeSingle(),
   ]);
-  if (t.error) throw t.error;
-  return { t: t.data, cats: cats.data || [], teams: teams.data || [], wed: wed.data || [], scheids: srs.data || [] };
+  return {
+    t: { ...t.data, _club_naam: club.data?.club_naam || null },
+    cats: cats.data || [], teams: teams.data || [],
+    wed: wed.data || [], scheids: srs.data || []
+  };
 }
 
 async function vBeheer(id, tab){
@@ -588,7 +593,7 @@ function tabInstellingen(el, d){ window._bewaarClubId = d.t.club_id;
     <h3>Algemeen</h3>
     <div class="rij" style="align-items:flex-end">
       <div><label>Naam toernooi</label><input id="i-naam" value="${h(t.naam)}"></div>
-      <div><label>Naam organiserende club</label><input id="i-clubnaam" value="${h(t.clubs?.club_naam||mijnClub?.club_naam||'')}"></div>
+      <div><label>Naam organiserende club</label><input id="i-clubnaam" value="${h(t._club_naam||mijnClub?.club_naam||'')}"></div>
       <div><label>Startdatum</label><input id="i-datum" type="date" value="${t.datum||''}"></div>
       <div><label>Einddatum <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="i-einddatum" type="date" value="${t.einddatum||''}"></div>
     </div>
