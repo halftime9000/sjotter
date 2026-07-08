@@ -714,6 +714,7 @@ function tabCategorieen(el, d){
       <td class="num">${n}/${c.max_teams}</td>
       <td class="num">${c.aantal_poules}</td>
       <td class="num" style="color:var(--grijs)">${tpp}</td>
+      <td><span class="tijd" style="font-size:12px">${c.starttijd || d.t.starttijd}</span></td>
       ${meerdaags ? `<td class="num">${c.dag||1}</td>` : ''}
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-o btn-sm" onclick="app.bewerkCat('${c.id}',${meerdaags})">✎</button>
@@ -726,7 +727,7 @@ function tabCategorieen(el, d){
     <h3>Leeftijdscategorieën</h3>
     <p class="sub">Bv. U8, U9, U10… Ploegen schrijven zich per categorie in.</p>
     ${d.cats.length ? `<table style="margin-top:12px">
-      <tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th class="num" style="color:var(--grijs)">Per poule</th>${meerdaags ? '<th class="num">Dag</th>' : ''}<th></th></tr>
+      <tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th class="num" style="color:var(--grijs)">Per poule</th><th>Starttijd</th>${meerdaags ? '<th class="num">Dag</th>' : ''}<th></th></tr>
       ${rijen}
     </table>` : '<div class="leeg">Nog geen categorieën.</div>'}
     <hr class="krijt">
@@ -742,6 +743,7 @@ function tabCategorieen(el, d){
       <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="64" value="8" oninput="app.catNieuwSync('max')"></div>
       <div><label>Teams per poule</label><input id="c-tpp" type="number" min="2" max="20" value="4" oninput="app.catNieuwSync('tpp')"></div>
       <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="16" value="2" oninput="app.catNieuwSync('poules')"></div>
+      <div><label>Starttijd</label><input id="c-start" type="time"></div>
       ${meerdaags ? `<div><label>Speeldag</label><input id="c-dag" type="number" min="1" max="10" value="1"></div>` : ''}
       <div><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%;margin-top:19px">+ Toevoegen</button></div>
     </div>
@@ -768,11 +770,13 @@ app.bewerkCat = (id, meerdaags) => {
   if (!c) return;
   const tpp = c.aantal_poules > 0 ? Math.ceil(c.max_teams / c.aantal_poules) : c.max_teams;
   const inpStijl = 'width:54px;text-align:center;padding:5px 4px;font-size:14px';
+  const tijdStijl = 'width:80px;padding:5px 4px;font-size:14px';
   document.getElementById('cat-rij-' + id).innerHTML = `
     <td><strong>${h(c.naam)}</strong></td>
     <td class="num"><input type="number" id="ce-max-${id}" value="${c.max_teams}" min="2" max="64" style="${inpStijl}" oninput="app.catBewerk_sync('${id}','max')"></td>
     <td class="num"><input type="number" id="ce-poules-${id}" value="${c.aantal_poules}" min="1" max="16" style="${inpStijl}" oninput="app.catBewerk_sync('${id}','poules')"></td>
     <td class="num"><input type="number" id="ce-tpp-${id}" value="${tpp}" min="2" max="20" style="${inpStijl}" oninput="app.catBewerk_sync('${id}','tpp')"></td>
+    <td><input type="time" id="ce-start-${id}" value="${c.starttijd || ''}" style="${tijdStijl}"></td>
     ${meerdaags ? `<td class="num"><input type="number" id="ce-dag-${id}" value="${c.dag||1}" min="1" max="10" style="${inpStijl}"></td>` : ''}
     <td style="text-align:right;white-space:nowrap">
       <button class="btn btn-p btn-sm" onclick="app.opslaanCat('${id}',${meerdaags})">✓ Opslaan</button>
@@ -799,7 +803,8 @@ app.opslaanCat = async (id, meerdaags) => {
   const max_teams = +document.getElementById('ce-max-'+id)?.value || 8;
   const aantal_poules = +document.getElementById('ce-poules-'+id)?.value || 1;
   const dag = meerdaags ? (+document.getElementById('ce-dag-'+id)?.value || 1) : 1;
-  const { error } = await sb.from('categorieen').update({ max_teams, aantal_poules, dag }).eq('id', id);
+  const starttijd = document.getElementById('ce-start-'+id)?.value || null;
+  const { error } = await sb.from('categorieen').update({ max_teams, aantal_poules, dag, starttijd }).eq('id', id);
   if (error) return fout(error);
   toast('Categorie opgeslagen ✓');
   render();
@@ -813,6 +818,7 @@ app.nieuweCat = async (tid) => {
   const { error } = await sb.from('categorieen').insert({
     toernooi_id: tid, naam, max_teams: +$('#c-max').value || 8, aantal_poules: +$('#c-poules').value || 1,
     dag: $('#c-dag') ? (+$('#c-dag').value || 1) : 1,
+    starttijd: $('#c-start')?.value || null,
     volgorde: (parseInt(basis.replace(/\D/g,'')) || 999) * 10 + (niveau === 'REG' ? 1 : niveau === 'PROV' ? 2 : niveau === 'IP' ? 3 : 0)
   });
   if (error) return fout(error);
@@ -961,47 +967,60 @@ function bouwSchema(d){
   const { t } = d;
   const alleDagen = [...new Set(d.cats.map(c => c.dag || 1))].sort((a,b) => a-b);
   const rijen = [];
+
   for (const dag of alleDagen) {
-    let pool = [];
-    for (const c of d.cats.filter(c => (c.dag||1) === dag)) {
+    // Categorieën gesorteerd op hun eigen starttijd (of tournooistarttijd als fallback)
+    const catsVanDag = d.cats
+      .filter(c => (c.dag||1) === dag)
+      .sort((a,b) => (a.starttijd||t.starttijd) < (b.starttijd||t.starttijd) ? -1 : 1);
+
+    const datumDag = dagDatum(t.datum, dag);
+    const slotDuur = t.wedstrijdduur + t.pauze;
+
+    catsVanDag.forEach((c, catIdx) => {
+      // Bouw pool voor deze categorie alleen
       const letters = [...new Set(d.teams.filter(x => x.categorie_id === c.id && x.poule).map(x => x.poule))].sort();
+      let pool = [];
       for (const L of letters) {
         const ids = d.teams.filter(x => x.categorie_id === c.id && x.poule === L).map(x => x.id);
         if (ids.length < 2) continue;
         roundRobin(ids).forEach((rd, ri) => rd.forEach(([a, b]) => pool.push({ cat: c.id, poule: L, a, b, ronde: ri })));
       }
-    }
-    if (!pool.length) continue;
-    pool.sort((x, y) => x.ronde - y.ronde);
-    const slots = [];
-    let vorige = new Set();
-    let guard = 0;
-    while (pool.length && guard++ < 2000) {
-      const slot = [], bezet = new Set();
-      for (const rustEerst of [true, false]) {
-        for (let i = 0; i < pool.length && slot.length < t.aantal_velden; i++) {
-          const m = pool[i];
-          if (bezet.has(m.a) || bezet.has(m.b)) continue;
-          if (rustEerst && (vorige.has(m.a) || vorige.has(m.b))) continue;
-          slot.push(m); bezet.add(m.a); bezet.add(m.b);
-          pool.splice(i, 1); i--;
+      if (!pool.length) return;
+
+      pool.sort((x, y) => x.ronde - y.ronde);
+      const slots = [];
+      let vorige = new Set();
+      let guard = 0;
+      while (pool.length && guard++ < 2000) {
+        const slot = [], bezet = new Set();
+        for (const rustEerst of [true, false]) {
+          for (let i = 0; i < pool.length && slot.length < t.aantal_velden; i++) {
+            const m = pool[i];
+            if (bezet.has(m.a) || bezet.has(m.b)) continue;
+            if (rustEerst && (vorige.has(m.a) || vorige.has(m.b))) continue;
+            slot.push(m); bezet.add(m.a); bezet.add(m.b);
+            pool.splice(i, 1); i--;
+          }
         }
+        slots.push(slot);
+        vorige = bezet;
       }
-      slots.push(slot);
-      vorige = bezet;
-    }
-    const slotDuur = t.wedstrijdduur + t.pauze;
-    let cursor = t.starttijd;
-    let pauzeGedaan = !(t.pauze_start && t.pauze_duur);
-    const datumDag = dagDatum(t.datum, dag);
-    slots.forEach((slot, si) => {
-      if (!pauzeGedaan && cursor >= t.pauze_start) { cursor = tijdPlus(cursor, t.pauze_duur); pauzeGedaan = true; }
-      slot.forEach((m, vi) => rijen.push({
-        toernooi_id: t.id, categorie_id: m.cat, fase: 'poule', poule: m.poule,
-        team_a: m.a, team_b: m.b, veld: vi + 1,
-        datum: datumDag, starttijd: cursor, volgorde: dag * 100000 + si * 100 + vi
-      }));
-      cursor = tijdPlus(cursor, slotDuur);
+
+      // Eigen starttijd per categorie, valt terug op toernooi-starttijd
+      let cursor = c.starttijd || t.starttijd;
+      let pauzeGedaan = !(t.pauze_start && t.pauze_duur);
+
+      slots.forEach((slot, si) => {
+        if (!pauzeGedaan && cursor >= t.pauze_start) { cursor = tijdPlus(cursor, t.pauze_duur); pauzeGedaan = true; }
+        slot.forEach((m, vi) => rijen.push({
+          toernooi_id: t.id, categorie_id: m.cat, fase: 'poule', poule: m.poule,
+          team_a: m.a, team_b: m.b, veld: vi + 1,
+          datum: datumDag, starttijd: cursor,
+          volgorde: dag * 1000000 + catIdx * 10000 + si * 100 + vi
+        }));
+        cursor = tijdPlus(cursor, slotDuur);
+      });
     });
   }
   return rijen;
