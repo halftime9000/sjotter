@@ -910,7 +910,8 @@ async function tabTeams(el, d){
       <div class="rij">
         <div><label>Clubnaam</label><input id="t-club-${c.id}" onblur="kapitaliseer(this)"></div>
         <div><label>Stamnummer</label><input id="t-stam-${c.id}"></div>
-        <div><label>Ploegnaam (optioneel)</label><input id="t-naam-${c.id}"></div>
+        <div><label>Contactpersoon <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="t-contact-${c.id}"></div>
+        <div><label>E-mail <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="t-email-${c.id}" type="email"></div>
         <div><label>Logo (optioneel)</label><input id="t-logo-${c.id}" type="file" accept="image/*"></div>
         <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.nieuwTeam('${d.t.id}','${c.id}')" style="width:100%">+ Ploeg toevoegen</button></div>
       </div>
@@ -924,8 +925,12 @@ app.nieuwTeam = async (tid, cid) => {
   let logo_url = null;
   const f = $(`#t-logo-${cid}`).files[0];
   if (f) { try { logo_url = await uploadLogo(f); } catch(e){ return fout(e); } }
-  const { error } = await sb.from('teams').insert({ toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: $(`#t-stam-${cid}`).value.trim() || null, team_naam: $(`#t-naam-${cid}`).value.trim() || null, logo_url });
+  const { data: team, error } = await sb.from('teams').insert({ toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: $(`#t-stam-${cid}`).value.trim() || null, logo_url }).select().single();
   if (error) return fout(error);
+  const contactNaam = $(`#t-contact-${cid}`).value.trim(), contactEmail = $(`#t-email-${cid}`).value.trim();
+  if (contactNaam || contactEmail) {
+    await sb.from('team_contacten').insert({ team_id: team.id, naam: contactNaam || null, email: contactEmail || null });
+  }
   toast('Ploeg toegevoegd'); render();
 };
 
@@ -1555,7 +1560,6 @@ function pubInschrijven(el, d, open){ window._pubT = d.t;
     <div class="rij">
       <div><label>Clubnaam *</label><input id="p-club" onblur="kapitaliseer(this)"></div>
       <div><label>Stamnummer *</label><input id="p-stam"></div>
-      <div><label>Ploegnaam (optioneel)</label><input id="p-team"></div>
     </div>
     <div class="rij">
       <div><label>Contactpersoon *</label><input id="p-naam"></div>
@@ -1580,7 +1584,7 @@ app.schrijfIn = async (tid, slug) => {
     catch(e){ console.error(e); toast('Logo uploaden mislukt — inschrijving gaat door zonder logo'); }
   }
   const { data: team, error } = await sb.from('teams').insert({
-    toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: stam, team_naam: $('#p-team').value.trim() || null, logo_url
+    toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: stam, logo_url
   }).select().single();
   if (error) return fout(error);
   await sb.from('team_contacten').insert({ team_id: team.id, naam, email, telefoon: tel });
@@ -1588,7 +1592,7 @@ app.schrijfIn = async (tid, slug) => {
   // E-mails versturen via EmailJS
   if (window.emailjs && CONFIG.EMAILJS_TEMPLATE !== 'VUL_IN') {
     const t = window._pubT || {};
-    const ploegnaam = club + (team.team_naam ? ' ' + team.team_naam : '');
+    const ploegnaam = club;
     const catNaam = document.querySelector('#p-cat option:checked')?.text?.replace(/\s*\(.*\)$/, '') || '';
     const toernooiInfo = `${t.naam || 'toernooi'} — ${catNaam}`;
     const datumStr = t.datum ? new Date(t.datum + 'T00:00').toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
