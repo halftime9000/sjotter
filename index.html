@@ -2740,9 +2740,12 @@ async function vKalender(){
     <p style="margin-bottom:0">Alle jeugdtoernooien op een rij — meld je ploeg aan of voeg je eigen toernooi toe.</p>
   </div></section>
   <div class="wrap">
-    <div class="kaart"><div class="rij">
+    <div class="kaart">
+      <h3 style="margin-bottom:12px">🔍 Zoek een toernooi</h3>
+      <div class="rij">
       <div><label>Provincie</label><select id="kal-f-prov"><option value="">Alle</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div><label>Categorie</label><select id="kal-f-cat"><option value="">Alle</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div><label>Maand <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><select id="kal-f-maand"><option value="">Alle</option>${['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'].map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}</select></div>
       <div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="checkbox" id="kal-f-sjotter" style="width:auto"> Enkel op ${CONFIG.PLATFORM}</label></div>
     </div></div>
     <div id="kal-lijst"><div class="leeg">Laden…</div></div>
@@ -2796,18 +2799,19 @@ async function vKalender(){
   (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, club: k.club, plaats: k.gemeente, provincie: k.provincie, cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
   items.sort((a,b) => a.datum.localeCompare(b.datum));
   _kalItems = items;
-  ['kal-f-prov','kal-f-cat','kal-f-sjotter'].forEach(id => $('#'+id).addEventListener('change', tekenKalender));
+  ['kal-f-prov','kal-f-cat','kal-f-maand','kal-f-sjotter'].forEach(id => $('#'+id).addEventListener('change', tekenKalender));
   tekenKalender();
 }
 
 let _kalItems = [];
 
 function tekenKalender(){
-  const prov = $('#kal-f-prov').value, cat = $('#kal-f-cat').value, alleenSjotter = $('#kal-f-sjotter').checked;
+  const prov = $('#kal-f-prov').value, cat = $('#kal-f-cat').value, maand = $('#kal-f-maand').value, alleenSjotter = $('#kal-f-sjotter').checked;
   const gefilterd = _kalItems.filter(i => {
     if (alleenSjotter && !i.sjotter) return false;
     if (cat && !(i.cats||'').includes(cat)) return false;
     if (prov && i.provincie !== prov) return false;
+    if (maand && +i.datum.slice(5,7) !== +maand) return false;
     return true;
   });
   $('#kal-lijst').innerHTML = gefilterd.length ? gefilterd.map(i => `
