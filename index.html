@@ -2723,19 +2723,24 @@ async function vKalender(){
 
   const vandaag = new Date().toISOString().slice(0,10);
   const [sj, ext] = await Promise.all([
-    sb.from('toernooien').select('id, naam, slug, datum, locatie, provincie, club_logo, clubs(club_naam)').eq('status', 'gepubliceerd'),
+    sb.from('toernooien').select('id, naam, slug, datum, locatie, provincie, club_logo, club_id').eq('status', 'gepubliceerd'),
     sb.from('kalender').select('*').eq('status', 'goedgekeurd'),
   ]);
   const sjItems = (sj.data||[]).filter(t => t.datum && t.datum >= vandaag);
-  let catMap = {};
+  let catMap = {}, clubMap = {};
   if (sjItems.length) {
-    const { data: catData } = await sb.from('categorieen').select('toernooi_id, naam').in('toernooi_id', sjItems.map(t => t.id)).order('volgorde').order('naam');
-    (catData||[]).forEach(c => { (catMap[c.toernooi_id] ||= []).push(c.naam); });
+    const clubIds = [...new Set(sjItems.map(t => t.club_id).filter(Boolean))];
+    const [catRes, clubRes] = await Promise.all([
+      sb.from('categorieen').select('toernooi_id, naam').in('toernooi_id', sjItems.map(t => t.id)).order('volgorde').order('naam'),
+      sb.from('clubs').select('id, club_naam').in('id', clubIds),
+    ]);
+    (catRes.data||[]).forEach(c => { (catMap[c.toernooi_id] ||= []).push(c.naam); });
+    (clubRes.data||[]).forEach(c => { clubMap[c.id] = c.club_naam; });
   }
   const items = [];
   sjItems.forEach(t => {
     const cats = (catMap[t.id]||[]).join(', ') || null;
-    items.push({ datum: t.datum, naam: t.naam, club: t.clubs?.club_naam || null, plaats: t.locatie, provincie: t.provincie, cats, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo });
+    items.push({ datum: t.datum, naam: t.naam, club: clubMap[t.club_id] || null, plaats: t.locatie, provincie: t.provincie, cats, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo });
   });
   (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, club: k.club, plaats: k.gemeente, provincie: k.provincie, cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
   items.sort((a,b) => a.datum.localeCompare(b.datum));
@@ -2794,8 +2799,8 @@ app.kalenderToevoegen = async () => {
       <h3>Bedankt voor je indiening!</h3>
       <p class="sub">${h(naam)} (${h(club)}) wordt kort nagekeken en verschijnt daarna in de toernooikalender.</p>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap">
-        <a class="btn btn-p" href="#/toernooien">Naar de kalender</a>
-        <a class="btn btn-o" href="#/toernooien">Nog een toernooi indienen</a>
+        <button class="btn btn-p" onclick="render()">Naar de kalender</button>
+        <button class="btn btn-o" onclick="render()">Nog een toernooi indienen</button>
       </div>
     </div>
   </div>` + voet();
