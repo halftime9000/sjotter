@@ -521,7 +521,7 @@ app.nieuwToernooi = async () => {
    ============================================================ */
 async function laadToernooi(id){
   const [t, cats, teams, wed, srs] = await Promise.all([
-    sb.from('toernooien').select('*').eq('id', id).single(),
+    sb.from('toernooien').select('*, clubs(club_naam)').eq('id', id).single(),
     sb.from('categorieen').select('*').eq('toernooi_id', id).order('volgorde').order('naam'),
     sb.from('teams').select('*').eq('toernooi_id', id).order('created_at'),
     sb.from('wedstrijden').select('*').eq('toernooi_id', id).order('volgorde'),
@@ -581,13 +581,14 @@ async function vBeheer(id, tab){
 }
 
 /* ---------- tab: instellingen ---------- */
-function tabInstellingen(el, d){
+function tabInstellingen(el, d){ window._bewaarClubId = d.t.club_id;
   const { t } = d;
   el.innerHTML = `
   <div class="kaart">
     <h3>Algemeen</h3>
     <div class="rij" style="align-items:flex-end">
-      <div><label>Naam</label><input id="i-naam" value="${h(t.naam)}"></div>
+      <div><label>Naam toernooi</label><input id="i-naam" value="${h(t.naam)}"></div>
+      <div><label>Naam organiserende club</label><input id="i-clubnaam" value="${h(t.clubs?.club_naam||mijnClub?.club_naam||'')}"></div>
       <div><label>Startdatum</label><input id="i-datum" type="date" value="${t.datum||''}"></div>
       <div><label>Einddatum <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="i-einddatum" type="date" value="${t.einddatum||''}"></div>
     </div>
@@ -686,6 +687,10 @@ app.bewaarInstellingen = async (id) => {
   }
   const { error } = await sb.from('toernooien').update(upd).eq('id', id);
   if (error) return fout(error);
+  const nieuweClubNaam = $('#i-clubnaam')?.value.trim();
+  if (nieuweClubNaam && window._bewaarClubId) {
+    await sb.from('clubs').update({ club_naam: nieuweClubNaam }).eq('id', window._bewaarClubId);
+  }
   toast('Bewaard ✓'); render();
 };
 
@@ -2713,11 +2718,20 @@ async function vKalender(){
 
   const vandaag = new Date().toISOString().slice(0,10);
   const [sj, ext] = await Promise.all([
-    sb.from('toernooien').select('naam, slug, datum, locatie, provincie, club_logo, clubs(club_naam)').eq('status', 'gepubliceerd'),
+    sb.from('toernooien').select('id, naam, slug, datum, locatie, provincie, club_logo, clubs(club_naam)').eq('status', 'gepubliceerd'),
     sb.from('kalender').select('*').eq('status', 'goedgekeurd'),
   ]);
+  const sjItems = (sj.data||[]).filter(t => t.datum && t.datum >= vandaag);
+  let catMap = {};
+  if (sjItems.length) {
+    const { data: catData } = await sb.from('categorieen').select('toernooi_id, naam').in('toernooi_id', sjItems.map(t => t.id)).order('volgorde').order('naam');
+    (catData||[]).forEach(c => { (catMap[c.toernooi_id] ||= []).push(c.naam); });
+  }
   const items = [];
-  (sj.data||[]).forEach(t => { if (t.datum && t.datum >= vandaag) items.push({ datum: t.datum, naam: t.naam, club: t.clubs?.club_naam || null, plaats: t.locatie, provincie: t.provincie, cats: null, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo }); });
+  sjItems.forEach(t => {
+    const cats = (catMap[t.id]||[]).join(', ') || null;
+    items.push({ datum: t.datum, naam: t.naam, club: t.clubs?.club_naam || null, plaats: t.locatie, provincie: t.provincie, cats, link: '#/p/' + t.slug, sjotter: true, logo: t.club_logo });
+  });
   (ext.data||[]).forEach(k => { if (k.datum && k.datum >= vandaag) items.push({ datum: k.datum, naam: k.naam, club: k.club, plaats: k.gemeente, provincie: k.provincie, cats: k.categorieen, link: k.link, sjotter: false, logo: k.club_logo }); });
   items.sort((a,b) => a.datum.localeCompare(b.datum));
   _kalItems = items;
