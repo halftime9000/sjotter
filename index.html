@@ -1502,37 +1502,34 @@ app.schrijfIn = async (tid, slug) => {
     const toernooiInfo = `${t.naam || 'toernooi'} — ${catNaam}`;
     const datumStr = t.datum ? new Date(t.datum + 'T00:00').toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
-    // 1. Bevestiging aan de inschrijver (eerst awaiten zodat EmailJS niet throttlet)
-    try {
-      await emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
-        naar_email: email,
-        naar_naam: naam,
-        zoekertje: toernooiInfo,
-        van_naam: t.naam || CONFIG.PLATFORM,
-        van_email: t.contact_email || CONFIG.CONTACT_EMAIL,
-        bericht: `Beste ${naam},\n\nJe inschrijving voor ${toernooiInfo} is goed ontvangen! Hier is een overzicht:\n\n` +
-          `Ploeg: ${ploegnaam}\nStamnummer: ${stam}\nCategorie: ${catNaam}\n${datumStr ? 'Datum: ' + datumStr + '\n' : ''}` +
-          `${t.locatie ? 'Locatie: ' + t.locatie + '\n' : ''}\n` +
-          `Meer info volgt via de organisator. Je kan de deelnemerslijst en het programma volgen via:\n` +
-          `${location.origin + location.pathname}#/p/${slug}\n\nTot op het veld! \u26bd`,
-      });
-    } catch(e) { console.error('Bevestigingsmail mislukt', e); }
+    // 1. Bevestiging aan de inschrijver
+    emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
+      naar_email: email,
+      naar_naam: naam,
+      zoekertje: toernooiInfo,
+      van_naam: t.naam || CONFIG.PLATFORM,
+      van_email: t.contact_email || CONFIG.CONTACT_EMAIL,
+      bericht: `Beste ${naam},\n\nJe inschrijving voor ${toernooiInfo} is goed ontvangen!\n\n` +
+        `Ploeg: ${ploegnaam}\nStamnummer: ${stam}\nCategorie: ${catNaam}\n` +
+        `${datumStr ? 'Datum: ' + datumStr + '\n' : ''}${t.locatie ? 'Locatie: ' + t.locatie + '\n' : ''}\n` +
+        `Volg het programma via:\n${location.origin + location.pathname}#/p/${slug}\n\nTot op het veld! \u26bd`,
+    }).catch(e => { console.error('Bevestigingsmail mislukt', e); toast('\u26a0 Bevestigingsmail kon niet worden verzonden'); });
 
-    // 2. Melding aan de organisator
+    // 2. Melding aan de organisator — 1s vertraging om EmailJS throttling te vermijden
     if (t.contact_email) {
-      try {
-        await emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
+      setTimeout(() => {
+        emailjs.send(CONFIG.EMAILJS_SERVICE, CONFIG.EMAILJS_TEMPLATE, {
           naar_email: t.contact_email,
           naar_naam: t.naam || 'organisator',
-          zoekertje: 'Nieuwe inschrijving — ' + toernooiInfo,
+          zoekertje: 'Nieuwe inschrijving \u2014 ' + toernooiInfo,
           van_naam: ploegnaam,
           van_email: email,
           bericht: `Nieuwe inschrijving voor ${toernooiInfo}!\n\n` +
             `Ploeg: ${ploegnaam}\nStamnummer: ${stam}\nCategorie: ${catNaam}\n\n` +
             `Contactpersoon: ${naam}\nE-mail: ${email}\nGSM: ${tel}\n\n` +
-            `Bekijk alle inschrijvingen via:\n${location.origin + location.pathname}#/t/${tid}/teams`,
-        });
-      } catch(e) { console.error('Organisatormail mislukt', e); }
+            `Ploegen beheren:\n${location.origin + location.pathname}#/t/${tid}/teams`,
+        }).catch(e => console.error('Organisatormail mislukt', e));
+      }, 1000);
     }
   }
 
