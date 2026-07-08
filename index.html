@@ -2432,9 +2432,9 @@ async function vZoekLijst(){
 
   const { count: gevondenCount, error: gevondenErr } = await sb.from('zoekertjes').select('id', { count: 'exact', head: true }).eq('status', 'gevonden');
   if (gevondenErr) console.error('gevondenCount-fout', gevondenErr);
-  $('#z-tellers').innerHTML = `<div class="stat-rij" style="margin-bottom:4px">
-    <div class="stat"><div class="n">${_zoek.length}</div><div class="l">Zoekertjes online</div></div>
-    ${gevondenCount ? `<div class="stat"><div class="n">${gevondenCount}</div><div class="l">Matches gevonden</div></div>` : ''}
+  $('#z-tellers').innerHTML = `<div class="stat-rij" style="margin-bottom:4px;flex-wrap:nowrap;gap:8px">
+    <div class="stat" style="flex:1;min-width:0;padding:10px 12px;text-align:center"><div class="n" style="font-size:20px">${_zoek.length}</div><div class="l" style="font-size:11px">Zoekertjes online</div></div>
+    ${gevondenCount ? `<div class="stat" style="flex:1;min-width:0;padding:10px 12px;text-align:center"><div class="n" style="font-size:20px">${gevondenCount}</div><div class="l" style="font-size:11px">Matches gevonden</div></div>` : ''}
   </div>`;
 }
 
