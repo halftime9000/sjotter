@@ -2433,8 +2433,14 @@ async function vZoekLijst(){
   const { count: gevondenCount, error: gevondenErr } = await sb.from('zoekertjes').select('id', { count: 'exact', head: true }).eq('status', 'gevonden');
   if (gevondenErr) console.error('gevondenCount-fout', gevondenErr);
   $('#z-tellers').innerHTML = `<div class="stat-rij" style="margin-bottom:4px;flex-wrap:nowrap;gap:8px">
-    <div class="stat" style="flex:1;min-width:0;padding:10px 12px;text-align:center"><div class="n" style="font-size:20px">${_zoek.length}</div><div class="l" style="font-size:11px">Zoekertjes online</div></div>
-    ${gevondenCount ? `<div class="stat" style="flex:1;min-width:0;padding:10px 12px;text-align:center"><div class="n" style="font-size:20px">${gevondenCount}</div><div class="l" style="font-size:11px">Matches gevonden</div></div>` : ''}
+    <div class="stat" style="flex:1;min-width:0;padding:10px 12px;text-align:center;background:#E8EFFB;border-color:#C9D9F2">
+      <div class="n" style="font-size:20px;color:var(--blauw-d);display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-size:16px">🔎</span>${_zoek.length}</div>
+      <div class="l" style="font-size:11px;color:var(--blauw)">Zoekertjes online</div>
+    </div>
+    ${gevondenCount ? `<div class="stat" style="flex:1;min-width:0;padding:10px 12px;text-align:center;background:var(--gras-l);border-color:#B9E3C6">
+      <div class="n" style="font-size:20px;color:var(--groen);display:flex;align-items:center;justify-content:center;gap:6px"><span style="font-size:16px">✓</span>${gevondenCount}</div>
+      <div class="l" style="font-size:11px;color:var(--groen)">Matches gevonden</div>
+    </div>` : ''}
   </div>`;
 }
 
