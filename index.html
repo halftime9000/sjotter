@@ -246,6 +246,7 @@ const slugify = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g
 function tijdPlus(t, min){ const [u,m] = t.split(':').map(Number); const tot = u*60+m+min; return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0'); }
 function dagDatum(basis, dag){ if (!basis) return null; const d = new Date(basis + 'T00:00'); d.setDate(d.getDate() + (dag - 1)); return d.toISOString().slice(0,10); }
 function datumNL(d){ if(!d) return '—'; return new Date(d+'T00:00').toLocaleDateString('nl-BE',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+function datumKort(d){ if(!d) return '—'; return new Date(d+'T00:00').toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'}); }
 function shuffle(a){ const x=[...a]; for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]];} return x; }
 function teamNaam(t){ return t ? h(t.club_naam + (t.team_naam ? ' ' + t.team_naam : '')) : '—'; }
 function teamHtml(t){ if (!t) return '—'; return (t.logo_url ? `<img class="tlogo" src="${h(t.logo_url)}" alt="">` : '') + teamNaam(t); }
@@ -268,6 +269,19 @@ async function uploadLogo(file, maat = 128){
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   const pad = 'logo-' + rand(12).toLowerCase() + '.png';
   const { error } = await sb.storage.from('logos').upload(pad, blob, { contentType: 'image/png' });
+  if (error) throw error;
+  return sb.storage.from('logos').getPublicUrl(pad).data.publicUrl;
+}
+
+async function uploadFoto(file, maxW = 1400, maxH = 700){
+  const img = await createImageBitmap(file);
+  const s = Math.min(maxW / img.width, maxH / img.height, 1);
+  const w = Math.round(img.width * s), hh = Math.round(img.height * s);
+  const c = document.createElement('canvas'); c.width = w; c.height = hh;
+  c.getContext('2d').drawImage(img, 0, 0, w, hh);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+  const pad = 'hero-' + rand(12).toLowerCase() + '.jpg';
+  const { error } = await sb.storage.from('logos').upload(pad, blob, { contentType: 'image/jpeg' });
   if (error) throw error;
   return sb.storage.from('logos').getPublicUrl(pad).data.publicUrl;
 }
@@ -611,6 +625,16 @@ function tabInstellingen(el, d){ window._bewaarClubId = d.t.club_id;
         ${t.club_logo ? `<div style="display:flex;align-items:center;gap:10px"><img src="${h(t.club_logo)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--lijn);background:#fff"><button class="btn btn-o btn-sm" onclick="app.verwijderClublogo('${t.id}')">Verwijderen</button></div>`
           : `<input id="i-logo" type="file" accept="image/*">`}</div>
     </div>
+    <div class="rij" style="align-items:flex-end;margin-top:4px">
+      <div style="flex:1 1 100%">
+        <label>Hero-foto <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel — vervangt de vlakke kleur bovenaan de publieke pagina)</span></label>
+        ${t.hero_foto ? `<div style="display:flex;align-items:center;gap:10px">
+            <img src="${h(t.hero_foto)}" style="width:110px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--lijn)">
+            <button class="btn btn-o btn-sm" onclick="app.verwijderHeroFoto('${t.id}')">Verwijderen</button>
+          </div>`
+          : `<input id="i-herofoto" type="file" accept="image/*">`}
+      </div>
+    </div>
   </div>
   <div class="kaart">
     <h3>Speelschema-instellingen</h3>
@@ -690,6 +714,11 @@ app.bewaarInstellingen = async (id) => {
     try { upd.club_logo = await uploadLogo(logoFile); }
     catch(e){ return fout(e); }
   }
+  const heroFile = $('#i-herofoto') ? $('#i-herofoto').files[0] : null;
+  if (heroFile) {
+    try { upd.hero_foto = await uploadFoto(heroFile); }
+    catch(e){ return fout(e); }
+  }
   const { error } = await sb.from('toernooien').update(upd).eq('id', id);
   if (error) return fout(error);
   const nieuweClubNaam = $('#i-clubnaam')?.value.trim();
@@ -701,6 +730,12 @@ app.bewaarInstellingen = async (id) => {
 
 app.verwijderClublogo = async (id) => {
   const { error } = await sb.from('toernooien').update({ club_logo: null }).eq('id', id);
+  if (error) return fout(error);
+  render();
+};
+
+app.verwijderHeroFoto = async (id) => {
+  const { error } = await sb.from('toernooien').update({ hero_foto: null }).eq('id', id);
   if (error) return fout(error);
   render();
 };
@@ -1429,9 +1464,12 @@ async function vPubliek(slug, tab, extra){
   const P = n => `#/p/${slug}/${n}`;
   const open = t.inschrijving_open && (!t.deadline || t.deadline >= new Date().toISOString().slice(0,10));
 
-  const kleur = veiligeKleur(t.kleur);
+  const kleur = veiligeKleur(t.kleur) || '#0D3B20';
+  const heroAchtergrond = t.hero_foto
+    ? `background-image:linear-gradient(180deg, ${kleur}CC, ${kleur}E6), url('${h(t.hero_foto)}');background-size:cover;background-position:center`
+    : `background:${kleur}`;
   root().innerHTML = topbar() + `
-  ${kleur ? `<style>#root .hero{background:${kleur}} #root .poule-kop{background:${kleur}}</style>` : ''}
+  <style>#root .hero{${heroAchtergrond}} #root .poule-kop{background:${kleur}}</style>
   <div class="beta-strook">🧪 Dit toernooi draait op de bètaversie van ${CONFIG.PLATFORM} — we testen nog volop.</div>
   <section class="hero" style="padding:44px 20px 50px"><div class="hero-in">
     ${t.club_logo ? `<img src="${h(t.club_logo)}" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.3);background:#fff;margin-bottom:14px">` : ''}
@@ -1612,11 +1650,16 @@ function pubStanden(el, d){
 function pubDeelnemers(el, d){
   el.innerHTML = d.cats.map(c => {
     const ts = d.teams.filter(x => x.categorie_id === c.id);
-    return `<div class="kaart">
-      <h3>${h(c.naam)} <span class="sub" style="font-weight:400">(${ts.length} ploegen)</span></h3>
-      ${ts.length ? `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-        ${ts.map(t => `<a href="#/p/${d.t.slug}/team/${t.id}" style="display:inline-flex;align-items:center;gap:4px;background:var(--papier);border:1px solid var(--lijn);border-radius:99px;padding:8px 16px;font-weight:600;font-size:14px;color:var(--inkt)">${teamHtml(t)}</a>`).join('')}
+    return `<div class="kaart" style="padding:0;overflow:hidden">
+      <div class="poule-kop" style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-radius:0">
+        <span>${h(c.naam)}</span>
+        <span class="mono" style="font-size:11px;background:rgba(255,255,255,.18);padding:2px 9px;border-radius:3px;letter-spacing:.03em">${ts.length} PLOEG${ts.length===1?'':'EN'}</span>
+      </div>
+      <div style="padding:16px 18px">
+      ${ts.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${ts.map(t => `<a href="#/p/${d.t.slug}/team/${t.id}" style="display:inline-flex;align-items:center;gap:4px;background:var(--gras-l);border-left:3px solid var(--gras);border-radius:4px;padding:7px 13px;font-weight:600;font-size:13.5px;color:var(--groen)">${teamHtml(t)}</a>`).join('')}
       </div>` : '<div class="leeg">Nog geen inschrijvingen in deze categorie.</div>'}
+      </div>
     </div>`;
   }).join('') || '<div class="kaart"><div class="leeg">Nog geen categorieën.</div></div>';
 }
@@ -2410,11 +2453,13 @@ function tekenZoek(){
             ${z.kunstgras ? '<span class="badge b-geel">Kunstgras</span>' : ''}
           </div>
           <h3>${h(z.club_naam)}</h3>
-          <p style="display:flex;gap:8px 10px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:14px">
+          <p style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:14px">
             <strong style="font-size:15px">📍 ${h(z.gemeente)}</strong>
             <span class="sub">(${h(z.provincie)})</span>
-            <span class="badge" style="background:#EDF2FA;color:#2C4F8C">${z.thuis_uit === 'beide' ? 'thuis of uit' : 'enkel ' + h(z.thuis_uit)}</span>
-            <span class="tijd" style="background:#E8EFFB;color:#2C4F8C;font-size:13.5px">${z.flexibel || !z.datum ? '📅 datum in overleg' : '📅 ' + datumNL(z.datum)}</span>
+          </p>
+          <p style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
+            <span class="badge" style="background:#EDF2FA;color:#2C4F8C;font-size:11.5px;padding:3px 8px;white-space:nowrap">${z.thuis_uit === 'beide' ? 'Thuis of uit' : 'Enkel ' + h(z.thuis_uit)}</span>
+            <span class="tijd" style="background:#E8EFFB;color:#2C4F8C;font-size:11.5px;padding:3px 8px;white-space:nowrap">📅 ${z.flexibel || !z.datum ? 'in overleg' : datumKort(z.datum)}</span>
           </p>
           ${z.opmerking ? `<p style="font-size:14px;margin-top:8px">${h(z.opmerking)}</p>` : ''}
         </div>
