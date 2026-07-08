@@ -704,39 +704,106 @@ app.verwijderToernooi = async (id) => {
 
 /* ---------- tab: categorieën ---------- */
 function tabCategorieen(el, d){
+  window._catLookup = Object.fromEntries(d.cats.map(c => [c.id, c]));
+  const meerdaags = !!d.t.einddatum;
   const rijen = d.cats.map(c => {
     const n = d.teams.filter(x => x.categorie_id === c.id).length;
-    return `<tr>
+    const tpp = c.aantal_poules > 0 ? Math.ceil(c.max_teams / c.aantal_poules) : c.max_teams;
+    return `<tr id="cat-rij-${c.id}">
       <td><strong>${h(c.naam)}</strong></td>
       <td class="num">${n}/${c.max_teams}</td>
       <td class="num">${c.aantal_poules}</td>
-      ${d.t.einddatum ? `<td class="num">${c.dag||1}</td>` : ''}
-      <td style="text-align:right"><button class="btn btn-r btn-sm" onclick="app.verwijderCat('${c.id}','${d.t.id}')">Verwijder</button></td>
+      <td class="num" style="color:var(--grijs)">${tpp}</td>
+      ${meerdaags ? `<td class="num">${c.dag||1}</td>` : ''}
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-o btn-sm" onclick="app.bewerkCat('${c.id}',${meerdaags})">✎</button>
+        <button class="btn btn-r btn-sm" onclick="app.verwijderCat('${c.id}','${d.t.id}')">✕</button>
+      </td>
     </tr>`;
   }).join('');
   el.innerHTML = `
   <div class="kaart">
     <h3>Leeftijdscategorieën</h3>
     <p class="sub">Bv. U8, U9, U10… Ploegen schrijven zich per categorie in.</p>
-    ${d.cats.length ? `<table style="margin-top:12px"><tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th>${d.t.einddatum ? '<th class="num">Dag</th>' : ''}<th></th></tr>${rijen}</table>` : '<div class="leeg">Nog geen categorieën.</div>'}
+    ${d.cats.length ? `<table style="margin-top:12px">
+      <tr><th>Categorie</th><th class="num">Ploegen</th><th class="num">Poules</th><th class="num" style="color:var(--grijs)">Per poule</th>${meerdaags ? '<th class="num">Dag</th>' : ''}<th></th></tr>
+      ${rijen}
+    </table>` : '<div class="leeg">Nog geen categorieën.</div>'}
     <hr class="krijt">
-    <div class="rij">
+    <div class="rij" style="align-items:flex-end">
       <div><label>Categorie</label><select id="c-naam">${Array.from({length:14},(_,i)=>`<option>U${i+6}</option>`).join('')}<option>Dames</option><option>Elite</option></select></div>
-      <div><label>Niveau (optioneel)</label><select id="c-niveau">
+      <div><label>Niveau <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><select id="c-niveau">
         <option value="">\u2014</option>
         <option value="REG">REG (regionaal)</option>
         <option value="PROV">PROV (provinciaal)</option>
         <option value="IP">IP (interprovinciaal)</option>
         <option value="Elite">Elite</option>
       </select></div>
-      <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="32" value="8"></div>
-      <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="8" value="2"></div>
-      ${d.t.einddatum ? `<div><label>Speeldag</label><input id="c-dag" type="number" min="1" max="10" value="1"></div>` : ''}
-      <div style="align-self:flex-end"><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%">+ Toevoegen</button></div>
+      <div><label>Max. ploegen</label><input id="c-max" type="number" min="2" max="64" value="8" oninput="app.catNieuwSync('max')"></div>
+      <div><label>Teams per poule</label><input id="c-tpp" type="number" min="2" max="20" value="4" oninput="app.catNieuwSync('tpp')"></div>
+      <div><label>Aantal poules</label><input id="c-poules" type="number" min="1" max="16" value="2" oninput="app.catNieuwSync('poules')"></div>
+      ${meerdaags ? `<div><label>Speeldag</label><input id="c-dag" type="number" min="1" max="10" value="1"></div>` : ''}
+      <div><button class="btn btn-p" onclick="app.nieuweCat('${d.t.id}')" style="width:100%;margin-top:19px">+ Toevoegen</button></div>
     </div>
     <p class="sub" style="margin-top:8px">Zo kan je bijvoorbeeld zowel \u201cU15 REG\u201d als \u201cU15 IP\u201d aanmaken als twee aparte categorie\u00ebn.</p>
   </div>`;
 }
+
+// Sync max/tpp/poules in het "nieuw" formulier
+app.catNieuwSync = (gewijzigd) => {
+  const mx = +$('#c-max').value || 8;
+  const tp = +$('#c-tpp').value || 4;
+  const po = +$('#c-poules').value || 1;
+  if (gewijzigd === 'max' || gewijzigd === 'tpp') {
+    const berekend = tp > 0 ? Math.max(1, Math.ceil(mx / tp)) : 1;
+    $('#c-poules').value = berekend;
+  } else if (gewijzigd === 'poules') {
+    const berekend = po > 0 ? Math.max(1, Math.ceil(mx / po)) : mx;
+    $('#c-tpp').value = berekend;
+  }
+};
+
+app.bewerkCat = (id, meerdaags) => {
+  const c = window._catLookup && window._catLookup[id];
+  if (!c) return;
+  const tpp = c.aantal_poules > 0 ? Math.ceil(c.max_teams / c.aantal_poules) : c.max_teams;
+  const inpStijl = 'width:54px;text-align:center;padding:5px 4px;font-size:14px';
+  document.getElementById('cat-rij-' + id).innerHTML = `
+    <td><strong>${h(c.naam)}</strong></td>
+    <td class="num"><input type="number" id="ce-max-${id}" value="${c.max_teams}" min="2" max="64" style="${inpStijl}" oninput="app.catBewerk_sync('${id}','max')"></td>
+    <td class="num"><input type="number" id="ce-poules-${id}" value="${c.aantal_poules}" min="1" max="16" style="${inpStijl}" oninput="app.catBewerk_sync('${id}','poules')"></td>
+    <td class="num"><input type="number" id="ce-tpp-${id}" value="${tpp}" min="2" max="20" style="${inpStijl}" oninput="app.catBewerk_sync('${id}','tpp')"></td>
+    ${meerdaags ? `<td class="num"><input type="number" id="ce-dag-${id}" value="${c.dag||1}" min="1" max="10" style="${inpStijl}"></td>` : ''}
+    <td style="text-align:right;white-space:nowrap">
+      <button class="btn btn-p btn-sm" onclick="app.opslaanCat('${id}',${meerdaags})">✓ Opslaan</button>
+      <button class="btn btn-o btn-sm" onclick="render()">Annuleer</button>
+    </td>`;
+};
+
+app.catBewerk_sync = (id, gewijzigd) => {
+  const mx = +document.getElementById('ce-max-'+id)?.value || 8;
+  const po = +document.getElementById('ce-poules-'+id)?.value || 1;
+  const tp = +document.getElementById('ce-tpp-'+id)?.value || 4;
+  if (gewijzigd === 'max' || gewijzigd === 'tpp') {
+    const berekend = tp > 0 ? Math.max(1, Math.ceil(mx / tp)) : 1;
+    const el = document.getElementById('ce-poules-'+id);
+    if (el) el.value = berekend;
+  } else if (gewijzigd === 'poules') {
+    const berekend = po > 0 ? Math.max(1, Math.ceil(mx / po)) : mx;
+    const el = document.getElementById('ce-tpp-'+id);
+    if (el) el.value = berekend;
+  }
+};
+
+app.opslaanCat = async (id, meerdaags) => {
+  const max_teams = +document.getElementById('ce-max-'+id)?.value || 8;
+  const aantal_poules = +document.getElementById('ce-poules-'+id)?.value || 1;
+  const dag = meerdaags ? (+document.getElementById('ce-dag-'+id)?.value || 1) : 1;
+  const { error } = await sb.from('categorieen').update({ max_teams, aantal_poules, dag }).eq('id', id);
+  if (error) return fout(error);
+  toast('Categorie opgeslagen ✓');
+  render();
+};
 
 app.nieuweCat = async (tid) => {
   const basis = $('#c-naam').value;
