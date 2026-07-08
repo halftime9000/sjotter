@@ -1799,15 +1799,16 @@ async function vAdmin(){
 
     <div class="kaart">
       <h3>Toernooikalender <span class="sub" style="font-weight:400">(externe toernooien — moderatie)</span></h3>
-      <table style="margin-top:10px"><tr><th>Toernooi</th><th>Club / plaats</th><th>Datum</th><th>Link</th><th>Status</th><th></th></tr>
+      <table style="margin-top:10px"><tr><th>Toernooi</th><th>Club / plaats</th><th>Contact</th><th>Datum</th><th>Link</th><th>Status</th><th></th></tr>
       ${(ks.data||[]).map(k => `<tr>
         <td><strong>${h(k.naam)}</strong>${k.categorieen ? '<br><span class="sub" style="font-size:12px">' + h(k.categorieen) + '</span>' : ''}</td>
         <td>${h(k.club||'')}<br><span class="sub" style="font-size:12px">${h(k.gemeente||'')} (${h(k.provincie||'')})</span></td>
+        <td style="font-size:12px">${k.contact_naam ? h(k.contact_naam) + '<br>' : ''}${k.contact_email ? `<a href="mailto:${h(k.contact_email)}">${h(k.contact_email)}</a>` : '<span class="sub">—</span>'}${k.contact_tel ? '<br>' + h(k.contact_tel) : ''}</td>
         <td>${k.datum||'—'}</td>
         <td style="font-size:12px">${k.link ? `<a href="${h(/^https?:\/\//.test(k.link)?k.link:'https://'+k.link)}" target="_blank">link ↗</a>` : '—'}</td>
         <td><button class="btn ${k.status==='goedgekeurd'?'btn-o':'btn-p'} btn-sm" onclick="app.kalenderStatus('${k.id}','${k.status==='goedgekeurd'?'nieuw':'goedgekeurd'}')">${k.status==='goedgekeurd' ? '✓ live' : 'Keur goed'}</button></td>
         <td style="white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkKalender('${k.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.kalenderVerwijder('${k.id}')">✕</button></td>
-      </tr>`).join('') || '<tr><td colspan="6" class="leeg">Nog geen externe toernooien ingediend.</td></tr>'}
+      </tr>`).join('') || '<tr><td colspan="7" class="leeg">Nog geen externe toernooien ingediend.</td></tr>'}
       </table>
     </div>
 
@@ -2780,6 +2781,11 @@ async function vKalender(){
         <div><label>Organiserende club *</label><input id="k-club" onblur="kapitaliseer(this)"></div>
       </div>
       <div class="rij">
+        <div><label>Contactpersoon *</label><input id="k-contact-naam"></div>
+        <div><label>Contact e-mail *</label><input id="k-contact-email" type="email"></div>
+        <div><label>Contact GSM <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="k-contact-tel"></div>
+      </div>
+      <div class="rij">
         <div><label>Datum *</label><input id="k-datum" type="date"></div>
         <div><label>Gemeente *</label><input id="k-gemeente" onblur="vulProvincieIn('k-gemeente','k-prov')"></div>
         <div><label>Provincie</label><select id="k-prov"><option value="">—</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
@@ -2869,7 +2875,7 @@ function tekenKalender(){
 
 app.kalenderToevoegen = async () => {
   const v = id => $('#' + id).value.trim();
-  if (!v('k-naam') || !v('k-club') || !v('k-datum') || !v('k-gemeente')) return toast('Vul de verplichte velden in (*)');
+  if (!v('k-naam') || !v('k-club') || !v('k-datum') || !v('k-gemeente') || !v('k-contact-naam') || !v('k-contact-email')) return toast('Vul de verplichte velden in (*)');
   const cats = [...document.querySelectorAll('.k-cat:checked')].map(x => {
     const niv = document.getElementById('k-niv-' + x.dataset.idx)?.value;
     return niv ? `${x.value} ${niv}` : x.value;
@@ -2881,6 +2887,7 @@ app.kalenderToevoegen = async () => {
   const { error } = await sb.from('kalender').insert({
     naam, club, datum: v('k-datum'), gemeente: v('k-gemeente'),
     provincie: $('#k-prov').value, categorieen: cats, link: v('k-link') || null, club_logo,
+    contact_naam: v('k-contact-naam'), contact_email: v('k-contact-email'), contact_tel: v('k-contact-tel') || null,
   });
   if (error) return fout(error);
   root().innerHTML = topbar() + `<div class="wrap wrap-smal">
