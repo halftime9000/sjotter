@@ -248,6 +248,21 @@ const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;'
 function kapitaliseer(el){ if (el.value) el.value = el.value.charAt(0).toUpperCase() + el.value.slice(1); }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('zien'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('zien'),2600); }
 function fout(e){ console.error(e); toast('⚠ ' + (e?.message || 'Er ging iets mis')); }
+
+// Anti-spam: honeypot (bots vullen verborgen velden in) + eenvoudige client-side throttle
+function spamCheck(honeypotId, throttleKey, wachtSeconden = 30){
+  const hp = document.getElementById(honeypotId);
+  if (hp && hp.value.trim() !== '') return 'stil'; // bot: doe alsof het lukt, sla niets op
+  const laatst = +(localStorage.getItem('throttle_' + throttleKey) || 0);
+  const nu = Date.now();
+  if (nu - laatst < wachtSeconden * 1000) {
+    const resterend = Math.ceil((wachtSeconden * 1000 - (nu - laatst)) / 1000);
+    toast(`Even geduld — probeer over ${resterend} seconden opnieuw`);
+    return 'wacht';
+  }
+  localStorage.setItem('throttle_' + throttleKey, String(nu));
+  return 'ok';
+}
 const rand = n => Array.from({length:n},()=> 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*31)]).join('');
 const slugify = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 function tijdPlus(t, min){ const [u,m] = t.split(':').map(Number); const tot = u*60+m+min; return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0'); }
@@ -907,13 +922,13 @@ async function tabTeams(el, d){
           </tr>`;}).join('')}
       </table>` : '<div class="leeg">Nog geen inschrijvingen.</div>'}
       <hr class="krijt">
-      <div class="rij" style="align-items:flex-end">
+      <div class="rij">
         <div><label>Clubnaam</label><input id="t-club-${c.id}" onblur="kapitaliseer(this)"></div>
         <div><label>Stamnummer</label><input id="t-stam-${c.id}"></div>
-        <div><label>Contact <span style="font-weight:400;text-transform:none;letter-spacing:0">(opt.)</span></label><input id="t-contact-${c.id}"></div>
-        <div><label>E-mail <span style="font-weight:400;text-transform:none;letter-spacing:0">(opt.)</span></label><input id="t-email-${c.id}" type="email"></div>
-        <div><label>Logo <span style="font-weight:400;text-transform:none;letter-spacing:0">(opt.)</span></label><input id="t-logo-${c.id}" type="file" accept="image/*"></div>
-        <div><button class="btn btn-o" onclick="app.nieuwTeam('${d.t.id}','${c.id}')" style="width:100%;margin-top:19px">+ Ploeg toevoegen</button></div>
+        <div><label>Contactpersoon <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="t-contact-${c.id}"></div>
+        <div><label>E-mail <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label><input id="t-email-${c.id}" type="email"></div>
+        <div><label>Logo (optioneel)</label><input id="t-logo-${c.id}" type="file" accept="image/*"></div>
+        <div style="align-self:flex-end"><button class="btn btn-o" onclick="app.nieuwTeam('${d.t.id}','${c.id}')" style="width:100%">+ Ploeg toevoegen</button></div>
       </div>
     </div>`;
   }).join('') || '<div class="kaart"><div class="leeg">Maak eerst categorieën aan.</div></div>'}`;
@@ -1560,6 +1575,7 @@ function pubInschrijven(el, d, open){ window._pubT = d.t;
     <div class="rij">
       <div><label>Clubnaam *</label><input id="p-club" onblur="kapitaliseer(this)"></div>
       <div><label>Stamnummer *</label><input id="p-stam"></div>
+      <div><label>Ploegnaam (optioneel)</label><input id="p-team"></div>
     </div>
     <div class="rij">
       <div><label>Contactpersoon *</label><input id="p-naam"></div>
@@ -1568,12 +1584,16 @@ function pubInschrijven(el, d, open){ window._pubT = d.t;
     </div>
     <label>Clublogo (optioneel)</label><input id="p-logo" type="file" accept="image/*">
     <div id="p-melding"></div>
+    <input type="text" id="p-website" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
     <button class="btn btn-p" style="margin-top:16px" onclick="app.schrijfIn('${d.t.id}','${d.t.slug}')">Ploeg inschrijven</button>
     </div>
   </div>`;
 }
 
 app.schrijfIn = async (tid, slug) => {
+  const sc = spamCheck('p-website', 'inschrijving', 15);
+  if (sc === 'stil') return;
+  if (sc === 'wacht') return;
   const cid = $('#p-cat').value, club = $('#p-club').value.trim(), stam = $('#p-stam').value.trim(),
         naam = $('#p-naam').value.trim(), email = $('#p-email').value.trim(), tel = $('#p-tel').value.trim();
   if (!cid || !club || !stam || !naam || !email || !tel) return toast('Vul alle verplichte velden in (*)');
@@ -1584,7 +1604,7 @@ app.schrijfIn = async (tid, slug) => {
     catch(e){ console.error(e); toast('Logo uploaden mislukt — inschrijving gaat door zonder logo'); }
   }
   const { data: team, error } = await sb.from('teams').insert({
-    toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: stam, logo_url
+    toernooi_id: tid, categorie_id: cid, club_naam: club, stamnummer: stam, team_naam: $('#p-team').value.trim() || null, logo_url
   }).select().single();
   if (error) return fout(error);
   await sb.from('team_contacten').insert({ team_id: team.id, naam, email, telefoon: tel });
@@ -1592,7 +1612,7 @@ app.schrijfIn = async (tid, slug) => {
   // E-mails versturen via EmailJS
   if (window.emailjs && CONFIG.EMAILJS_TEMPLATE !== 'VUL_IN') {
     const t = window._pubT || {};
-    const ploegnaam = club;
+    const ploegnaam = club + (team.team_naam ? ' ' + team.team_naam : '');
     const catNaam = document.querySelector('#p-cat option:checked')?.text?.replace(/\s*\(.*\)$/, '') || '';
     const toernooiInfo = `${t.naam || 'toernooi'} — ${catNaam}`;
     const datumStr = t.datum ? new Date(t.datum + 'T00:00').toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
@@ -1788,7 +1808,7 @@ async function vAdmin(){
         <td class="mono" style="font-size:12.5px">${h(t.betaalref||'—')}</td>
         <td><span class="badge ${t.status==='gepubliceerd'?'b-live':'b-concept'}">${t.status}</span></td>
         <td><button class="btn ${t.betaald?'btn-o':'btn-p'} btn-sm" onclick="app.toggleBetaald('${t.id}', ${!t.betaald})">${t.betaald ? '✓ Betaald' : 'Markeer betaald'}</button></td>
-        <td style="white-space:nowrap"><a class="btn btn-p btn-sm" href="#/t/${t.id}/instellingen">Beheer ↗</a> <button class="btn btn-o btn-sm" onclick="app.bewerkToernooi('${t.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.adminVerwijderToernooi('${t.id}')">✕</button></td>
+        <td style="white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkToernooi('${t.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.adminVerwijderToernooi('${t.id}')">✕</button></td>
       </tr>`).join('') || '<tr><td colspan="7" class="leeg">Nog geen toernooien.</td></tr>'}
       </table>
     </div>
@@ -2658,6 +2678,7 @@ function vZoekPlaatsen(){
         <label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:14px;font-weight:500;color:var(--inkt);margin:0"><input type="radio" name="z-voorkeur" value="bericht" style="width:auto"> Enkel via ${CONFIG.PLATFORM}-bericht (je e-mail blijft verborgen)</label>
       </div>
       <div id="z-melding"></div>
+      <input type="text" id="z-website" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
       <button class="btn btn-b" style="margin-top:16px" onclick="app.plaatsZoekertje()">Zoekertjes plaatsen</button>
     </div>
   </div>`;
@@ -2676,6 +2697,9 @@ app.verwijderTeamRij = (idx) => {
 };
 
 app.plaatsZoekertje = async () => {
+  const sc = spamCheck('z-website', 'zoekertje', 20);
+  if (sc === 'stil') return; // bot: doe niets, geen foutmelding
+  if (sc === 'wacht') return;
   const v = id => $('#' + id).value.trim();
   if (!v('z-club') || !v('z-gemeente') || !v('z-cnaam') || !v('z-cemail')) return toast('Vul de verplichte velden in (*)');
   if (!/^[0-9]{4}$/.test(v('z-pin'))) return toast('Kies een pincode van precies 4 cijfers');
@@ -2820,6 +2844,7 @@ async function vKalender(){
       </div>
       <label>Clublogo (optioneel)</label><input id="k-logo" type="file" accept="image/*">
       <div id="k-melding"></div>
+      <input type="text" id="k-website" name="website" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
       <button class="btn btn-p" style="margin-top:16px" onclick="app.kalenderToevoegen()">Toernooi toevoegen</button>
     </div>
   </div>` + voet();
@@ -2885,6 +2910,9 @@ function tekenKalender(){
 }
 
 app.kalenderToevoegen = async () => {
+  const sc = spamCheck('k-website', 'kalender', 20);
+  if (sc === 'stil') return;
+  if (sc === 'wacht') return;
   const v = id => $('#' + id).value.trim();
   if (!v('k-naam') || !v('k-club') || !v('k-datum') || !v('k-gemeente') || !v('k-contact-naam') || !v('k-contact-email')) return toast('Vul de verplichte velden in (*)');
   const cats = [...document.querySelectorAll('.k-cat:checked')].map(x => {
