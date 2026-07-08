@@ -26,8 +26,8 @@ h1,h2,h3,h4{font-family:'Archivo',sans-serif;letter-spacing:-.01em;line-height:1
 .kaart h3:first-of-type{border-left:4px solid var(--gras);padding-left:12px;margin-bottom:16px;font-size:17px}
 a{color:var(--groen);text-decoration:none}
 button{font-family:inherit;cursor:pointer}
-input,select,textarea{font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--lijn);border-radius:8px;background:var(--wit);width:100%;color:var(--inkt);transition:.15s}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gras);box-shadow:0 0 0 3px rgba(46,138,79,.14)}
+input,select,textarea{font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--lijn);border-radius:8px;background:var(--papier);width:100%;color:var(--inkt);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gras);box-shadow:0 0 0 3px rgba(46,138,79,.14);background:var(--wit)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--gras);outline-offset:1px;border-color:var(--gras)}
 label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.04em}
 .mono{font-family:'IBM Plex Mono',monospace}
@@ -625,21 +625,24 @@ function tabInstellingen(el, d){ window._bewaarClubId = d.t.club_id;
     </div>
     <label>Beschrijving <span style="font-weight:400;text-transform:none;letter-spacing:0">(publieke pagina)</span></label>
     <textarea id="i-beschrijving" rows="3">${h(t.beschrijving||'')}</textarea>
-    <div class="rij" style="align-items:flex-end;margin-top:4px">
-      <div style="flex:0 0 auto;min-width:auto"><label>Clubkleur</label>
-        <input id="i-kleur" type="color" value="${veiligeKleur(t.kleur) || '#0D3B20'}" style="width:70px;height:42px;padding:3px;cursor:pointer"></div>
-      <div><label>Clublogo</label>
-        ${t.club_logo ? `<div style="display:flex;align-items:center;gap:10px"><img src="${h(t.club_logo)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--lijn);background:#fff"><button class="btn btn-o btn-sm" onclick="app.verwijderClublogo('${t.id}')">Verwijderen</button></div>`
-          : `<input id="i-logo" type="file" accept="image/*">`}</div>
-    </div>
-    <div class="rij" style="align-items:flex-end;margin-top:4px">
-      <div style="flex:1 1 100%">
-        <label>Hero-foto <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel — vervangt de vlakke kleur bovenaan de publieke pagina)</span></label>
-        ${t.hero_foto ? `<div style="display:flex;align-items:center;gap:10px">
-            <img src="${h(t.hero_foto)}" style="width:110px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--lijn)">
-            <button class="btn btn-o btn-sm" onclick="app.verwijderHeroFoto('${t.id}')">Verwijderen</button>
-          </div>`
-          : `<input id="i-herofoto" type="file" accept="image/*">`}
+    <div style="background:var(--gras-l);border:1px solid #B9E3C6;border-radius:10px;padding:14px 16px;margin-top:16px">
+      <p style="font-size:12px;font-weight:700;color:var(--groen);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px">🎨 Huisstijl publieke pagina</p>
+      <div class="rij" style="align-items:flex-end;margin-top:0">
+        <div style="flex:0 0 auto;min-width:auto"><label>Clubkleur</label>
+          <input id="i-kleur" type="color" value="${veiligeKleur(t.kleur) || '#0D3B20'}" style="width:70px;height:42px;padding:3px;cursor:pointer"></div>
+        <div><label>Clublogo</label>
+          ${t.club_logo ? `<div style="display:flex;align-items:center;gap:10px"><img src="${h(t.club_logo)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--lijn);background:#fff"><button class="btn btn-o btn-sm" onclick="app.verwijderClublogo('${t.id}')">Verwijderen</button></div>`
+            : `<input id="i-logo" type="file" accept="image/*">`}</div>
+      </div>
+      <div class="rij" style="align-items:flex-end;margin-top:4px">
+        <div style="flex:1 1 100%">
+          <label>Hero-foto <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel — vervangt de vlakke kleur bovenaan de publieke pagina)</span></label>
+          ${t.hero_foto ? `<div style="display:flex;align-items:center;gap:10px">
+              <img src="${h(t.hero_foto)}" style="width:110px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--lijn)">
+              <button class="btn btn-o btn-sm" onclick="app.verwijderHeroFoto('${t.id}')">Verwijderen</button>
+            </div>`
+            : `<input id="i-herofoto" type="file" accept="image/*">`}
+        </div>
       </div>
     </div>
   </div>
