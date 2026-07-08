@@ -1456,13 +1456,15 @@ async function vPubliek(slug, tab, extra){
   const { data: t, error } = await sb.from('toernooien').select('*').eq('slug', slug).maybeSingle();
   if (error) return fout(error);
   if (!t) return root().innerHTML = topbar() + `<div class="wrap"><div class="kaart"><div class="leeg">Toernooi niet gevonden of niet (meer) gepubliceerd.</div></div></div>`;
-  const [cats, teams, wed, sps, srs] = await Promise.all([
+  const [cats, teams, wed, sps, srs, clubRes] = await Promise.all([
     sb.from('categorieen').select('*').eq('toernooi_id', t.id).order('volgorde').order('naam'),
     sb.from('teams').select('*').eq('toernooi_id', t.id),
     sb.from('wedstrijden').select('*').eq('toernooi_id', t.id).order('volgorde'),
     sb.from('sponsors').select('*').eq('toernooi_id', t.id).order('volgorde').order('naam'),
     sb.from('scheidsrechters').select('*').eq('toernooi_id', t.id),
+    sb.from('clubs').select('club_naam').eq('id', t.club_id).maybeSingle(),
   ]);
+  t._club_naam = clubRes.data?.club_naam || null;
   const d = { t, cats: cats.data||[], teams: teams.data||[], wed: wed.data||[], sponsors: sps.data||[], scheids: srs.data||[] };
   const P = n => `#/p/${slug}/${n}`;
   const open = t.inschrijving_open && (!t.deadline || t.deadline >= new Date().toISOString().slice(0,10));
@@ -1482,6 +1484,7 @@ async function vPubliek(slug, tab, extra){
   <div class="beta-strook">🧪 Dit toernooi draait op de bètaversie van ${CONFIG.PLATFORM} — we testen nog volop.</div>
   <section class="hero" style="padding:44px 20px 50px"><div class="hero-in">
     ${t.club_logo ? `<img src="${h(t.club_logo)}" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.3);background:#fff;margin-bottom:14px">` : ''}
+    ${t._club_naam ? `<p style="font-family:'Caveat',cursive;font-weight:700;font-size:22px;color:var(--geel);margin:0 0 2px;letter-spacing:.01em">${h(t._club_naam)}</p>` : ''}
     <h1 style="font-size:clamp(26px,5vw,42px)">${h(t.naam)}</h1>
     <p style="margin-bottom:0">${datumNL(t.datum)} · ${h(t.locatie||'')}</p>
   </div></section>
