@@ -1788,7 +1788,7 @@ async function vAdmin(){
         <td class="mono" style="font-size:12.5px">${h(t.betaalref||'—')}</td>
         <td><span class="badge ${t.status==='gepubliceerd'?'b-live':'b-concept'}">${t.status}</span></td>
         <td><button class="btn ${t.betaald?'btn-o':'btn-p'} btn-sm" onclick="app.toggleBetaald('${t.id}', ${!t.betaald})">${t.betaald ? '✓ Betaald' : 'Markeer betaald'}</button></td>
-        <td style="white-space:nowrap"><button class="btn btn-o btn-sm" onclick="app.bewerkToernooi('${t.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.adminVerwijderToernooi('${t.id}')">✕</button></td>
+        <td style="white-space:nowrap"><a class="btn btn-p btn-sm" href="#/t/${t.id}/instellingen">Beheer ↗</a> <button class="btn btn-o btn-sm" onclick="app.bewerkToernooi('${t.id}')">✎</button> <button class="btn btn-r btn-sm" onclick="app.adminVerwijderToernooi('${t.id}')">✕</button></td>
       </tr>`).join('') || '<tr><td colspan="7" class="leeg">Nog geen toernooien.</td></tr>'}
       </table>
     </div>
