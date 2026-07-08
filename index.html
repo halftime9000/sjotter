@@ -2427,7 +2427,9 @@ async function vZoekLijst(){
   </div></section>
   <div class="wrap">
     <div id="z-tellers"></div>
-    <div class="kaart"><div class="rij">
+    <div class="kaart">
+      <h3 style="margin-bottom:14px;font-size:19px;letter-spacing:-.005em;color:var(--groen-d)">🔍 Zoek een tegenstander</h3>
+      <div class="rij">
       <div><label>Categorie</label><select id="z-f-cat"><option value="">Alle</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div><label>Niveau</label><select id="z-f-niv"><option value="">Alle</option>${NIVEAUS.map(n=>`<option>${n}</option>`).join('')}</select></div>
       <div><label>Provincie</label><select id="z-f-prov"><option value="">Alle</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
@@ -2762,7 +2764,7 @@ async function vKalender(){
   </div></section>
   <div class="wrap">
     <div class="kaart">
-      <h3 style="margin-bottom:12px">🔍 Zoek een toernooi</h3>
+      <h3 style="margin-bottom:14px;font-size:19px;letter-spacing:-.005em;color:var(--groen-d)">🔍 Zoek een toernooi</h3>
       <div class="rij">
       <div><label>Provincie</label><select id="kal-f-prov"><option value="">Alle</option>${PROVINCIES.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div><label>Categorie</label><select id="kal-f-cat"><option value="">Alle</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
