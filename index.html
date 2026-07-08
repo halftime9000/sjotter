@@ -2054,6 +2054,8 @@ let _tv = null;
 async function vTv(slug){
   const { data: t } = await sb.from('toernooien').select('*').eq('slug', slug).maybeSingle();
   if (!t) return root().innerHTML = `<div class="wrap"><div class="kaart"><div class="leeg">Toernooi niet gevonden.</div></div></div>`;
+  const { data: club } = await sb.from('clubs').select('club_naam').eq('id', t.club_id).maybeSingle();
+  t._club_naam = club?.club_naam || null;
   _tv = { t, slide: 0 };
   await tvLaad();
   tvTeken();
@@ -2134,7 +2136,7 @@ function tvTeken(reset = true){
 
   const tvKleur = veiligeKleur(_tv.t.kleur);
   root().innerHTML = `<div class="tv"${tvKleur ? ` style="background:${tvKleur}"` : ''}>
-    <div class="tv-kop"><h1>${h(_tv.t.naam)}</h1><div class="tv-klok">${nu}</div></div>
+    <div class="tv-kop"><h1>${h(_tv.t.naam)}${_tv.t._club_naam ? ` <span style="font-family:'Caveat',cursive;font-weight:700;color:var(--geel);font-size:0.85em;letter-spacing:.01em;margin-left:14px">${h(_tv.t._club_naam)}</span>` : ''}</h1><div class="tv-klok">${nu}</div></div>
     ${catNaam ? `<div class="tv-cat">${h(catNaam)}</div>` : ''}
     <div class="tv-inhoud">${inhoud}</div>
     <div class="tv-voet"><span>${h(_tv.t.locatie||'')}</span><span>${CONFIG.PLATFORM} · live</span></div>
